@@ -41,7 +41,7 @@ dependencies:
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
   shared_preferences: ^2.5.6
-  intl: 0.20.2
+  intl: ^0.20.3
   fl_chart: ^1.2.0
   uuid: ^4.6.0
   pedometer: ^4.2.0
