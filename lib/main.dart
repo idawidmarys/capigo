@@ -13,10 +13,10 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await NotificationService.initialize();
+  try { await NotificationService.initialize(); } catch (_) {}
 
   // Enable DevicePreview on Web/browser preview, but automatically disable on physical iOS device
-  final bool enableDevicePreview = kIsWeb || (!kReleaseMode && !Platform.isIOS);
+  final bool enableDevicePreview = kIsWeb || (!kReleaseMode && !kIsWeb && !Platform.isIOS);
 
   runApp(
     DevicePreview(

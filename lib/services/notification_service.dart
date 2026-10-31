@@ -18,37 +18,45 @@ class NotificationService {
   static const String habitsChannelName = 'CapiGo - Przypomnienia o spacerach';
 
   static Future<void> initialize({Function(String action)? onNotificationAction}) async {
+    if (kIsWeb) {
+      _isInitialized = true;
+      return;
+    }
     if (_isInitialized) return;
 
     try {
-      tz.initializeTimeZones();
-    } catch (_) {}
+      try {
+        tz.initializeTimeZones();
+      } catch (_) {}
 
-    const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+      const AndroidInitializationSettings androidSettings =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
 
-    const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+      const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
 
-    const InitializationSettings initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
+      const InitializationSettings initSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+      );
 
-    await _notificationsPlugin.initialize(
-      settings: initSettings,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {
-        final actionId = response.actionId;
-        if (actionId != null && onNotificationAction != null) {
-          onNotificationAction(actionId);
-        }
-      },
-    );
+      await _notificationsPlugin.initialize(
+        settings: initSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+          final actionId = response.actionId;
+          if (actionId != null && onNotificationAction != null) {
+            onNotificationAction(actionId);
+          }
+        },
+      );
 
-    _isInitialized = true;
+      _isInitialized = true;
+    } catch (e) {
+      debugPrint('NotificationService init error: $e');
+    }
   }
 
   static Future<bool> requestPermissions() async {
