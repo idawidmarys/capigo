@@ -18,7 +18,6 @@
 	<array>
 		<string>location</string>
 		<string>fetch</string>
-		<string>processing</string>
 	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
