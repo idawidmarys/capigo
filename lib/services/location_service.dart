@@ -6,24 +6,36 @@ import 'package:geolocator/geolocator.dart';
 class LocationService {
   // Check and request permission
   static Future<bool> handlePermission() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return false;
-    }
+    try {
+      if (kIsWeb) {
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+        return permission == LocationPermission.always || permission == LocationPermission.whileInUse;
+      }
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
         return false;
       }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
-      return false;
-    }
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          return false;
+        }
+      }
 
-    return true;
+      if (permission == LocationPermission.deniedForever) {
+        return false;
+      }
+
+      return true;
+    } catch (_) {
+      return true;
+    }
   }
 
   // Get current one-time position quickly
@@ -42,7 +54,7 @@ class LocationService {
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 6),
+          timeLimit: Duration(seconds: 4),
         ),
       );
     } catch (_) {
@@ -58,34 +70,43 @@ class LocationService {
   static Stream<Position> getPositionStream({int distanceFilter = 2}) {
     LocationSettings settings;
 
-    if (!kIsWeb && Platform.isIOS) {
-      settings = AppleSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        activityType: ActivityType.fitness,
-        distanceFilter: distanceFilter,
-        pauseLocationUpdatesAutomatically: false,
-        showBackgroundLocationIndicator: true,
-        allowBackgroundLocationUpdates: true,
-      );
-    } else if (!kIsWeb && Platform.isAndroid) {
-      settings = AndroidSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: distanceFilter,
-        intervalDuration: const Duration(seconds: 1),
-        foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationTitle: "CapiGo - Spacer w toku 🦫",
-          notificationText: "Zapisywanie trasy i parametrów spaceru...",
-          enableWakeLock: true,
+    try {
+      if (!kIsWeb && Platform.isIOS) {
+        settings = AppleSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          activityType: ActivityType.fitness,
+          distanceFilter: distanceFilter,
+          pauseLocationUpdatesAutomatically: false,
+          showBackgroundLocationIndicator: true,
+          allowBackgroundLocationUpdates: true,
+        );
+      } else if (!kIsWeb && Platform.isAndroid) {
+        settings = AndroidSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: distanceFilter,
+          intervalDuration: const Duration(seconds: 1),
+          foregroundNotificationConfig: const ForegroundNotificationConfig(
+            notificationTitle: "CapiGo - Spacer w toku 🦫",
+            notificationText: "Zapisywanie trasy i parametrów spaceru...",
+            enableWakeLock: true,
+          ),
+        );
+      } else {
+        settings = LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: distanceFilter,
+        );
+      }
+
+      return Geolocator.getPositionStream(locationSettings: settings);
+    } catch (_) {
+      return Geolocator.getPositionStream(
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.bestForNavigation,
+          distanceFilter: distanceFilter,
         ),
       );
-    } else {
-      settings = LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: distanceFilter,
-      );
     }
-
-    return Geolocator.getPositionStream(locationSettings: settings);
   }
 
   // Calculate distance in meters between two lat/lng points

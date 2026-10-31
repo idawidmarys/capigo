@@ -112,56 +112,65 @@ class TrackingProvider extends ChangeNotifier {
 
   // Start workout
   Future<bool> startTracking(ActivityType type) async {
-    final hasPermission = await LocationService.handlePermission();
-    if (!hasPermission) {
-      return false;
-    }
-
-    _currentType = type;
-    _isTracking = true;
-    _isPaused = false;
-    _accumulatedPausedSeconds = 0;
-    _pauseStartTime = null;
-    _elapsedSeconds = 0;
-    _distanceMeters = 0.0;
-    _currentSpeedKmh = 0.0;
-    _currentHeading = 0.0;
-    _steps = 0;
-    _initialPedometerStepCount = -1;
-    _routePoints.clear();
-    _timeSeries.clear();
-    _startTime = DateTime.now();
-
-    // Fetch initial GPS position immediately so map is never on Warsaw
-    final initialPos = await LocationService.getCurrentPosition();
-    if (initialPos != null) {
-      _lastPosition = initialPos;
-      if (initialPos.heading >= 0 && !initialPos.heading.isNaN && initialPos.heading != 0) {
-        _currentHeading = initialPos.heading;
+    try {
+      final hasPermission = await LocationService.handlePermission();
+      if (!hasPermission) {
+        return false;
       }
-      _routePoints.add(RoutePoint(
-        latitude: initialPos.latitude,
-        longitude: initialPos.longitude,
-        timestamp: DateTime.now(),
-        speed: initialPos.speed,
-        altitude: initialPos.altitude,
-      ));
+
+      _currentType = type;
+      _isTracking = true;
+      _isPaused = false;
+      _accumulatedPausedSeconds = 0;
+      _pauseStartTime = null;
+      _elapsedSeconds = 0;
+      _distanceMeters = 0.0;
+      _currentSpeedKmh = 0.0;
+      _currentHeading = 0.0;
+      _steps = 0;
+      _initialPedometerStepCount = -1;
+      _routePoints.clear();
+      _timeSeries.clear();
+      _startTime = DateTime.now();
+
+      // Fetch initial GPS position immediately so map is never on Warsaw
+      try {
+        final initialPos = await LocationService.getCurrentPosition();
+        if (initialPos != null) {
+          _lastPosition = initialPos;
+          if (initialPos.heading >= 0 && !initialPos.heading.isNaN && initialPos.heading != 0) {
+            _currentHeading = initialPos.heading;
+          }
+          _routePoints.add(RoutePoint(
+            latitude: initialPos.latitude,
+            longitude: initialPos.longitude,
+            timestamp: DateTime.now(),
+            speed: initialPos.speed,
+            altitude: initialPos.altitude,
+          ));
+        }
+      } catch (_) {}
+
+      _startTimer();
+      _startLocationUpdates();
+      _startPedometer();
+
+      // Show ongoing notification on lock screen
+      try {
+        NotificationService.updateWorkoutNotification(
+          duration: formattedDuration,
+          distanceKm: distanceKm,
+          steps: _steps,
+          isPaused: false,
+        );
+      } catch (_) {}
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      debugPrint('startTracking error: $e');
+      return true;
     }
-
-    _startTimer();
-    _startLocationUpdates();
-    _startPedometer();
-
-    // Show ongoing notification on lock screen
-    NotificationService.updateWorkoutNotification(
-      duration: formattedDuration,
-      distanceKm: distanceKm,
-      steps: _steps,
-      isPaused: false,
-    );
-
-    notifyListeners();
-    return true;
   }
 
   void _startTimer() {
@@ -204,6 +213,7 @@ class TrackingProvider extends ChangeNotifier {
   }
 
   void _startPedometer() {
+    if (kIsWeb) return;
     try {
       _pedometerSubscription?.cancel();
       _pedometerSubscription = Pedometer.stepCountStream.listen(
@@ -228,8 +238,9 @@ class TrackingProvider extends ChangeNotifier {
   }
 
   void _startLocationUpdates() {
-    _positionSubscription?.cancel();
-    _positionSubscription = LocationService.getPositionStream(distanceFilter: 2).listen((Position position) {
+    try {
+      _positionSubscription?.cancel();
+      _positionSubscription = LocationService.getPositionStream(distanceFilter: 2).listen((Position position) {
       if (_isPaused) return;
 
       _lastPosition = position;
@@ -290,7 +301,8 @@ class TrackingProvider extends ChangeNotifier {
       );
 
       notifyListeners();
-    });
+    }, onError: (e) { debugPrint('Location stream error: $e'); });
+    } catch (e) { debugPrint('startLocationUpdates error: $e'); }
   }
 
   double _calculateBearing(double lat1, double lon1, double lat2, double lon2) {

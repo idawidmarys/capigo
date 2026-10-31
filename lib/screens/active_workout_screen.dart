@@ -1,4 +1,4 @@
-
+import 'dart:math' show pi;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -18,7 +18,9 @@ class ActiveWorkoutScreen extends StatefulWidget {
 
 class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   final MapController _mapController = MapController();
+  bool _isMapReady = false;
   bool _followHeading = true;
+  double _currentMapRotation = 0.0;
   double _lastAnimatedHeading = 0.0;
   LatLng? _lastCenteredPoint;
 
@@ -41,10 +43,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     final LatLng displayCenter = currentPoint ?? const LatLng(52.2297, 21.0122);
     final double heading = tracking.currentHeading;
 
-    // Follow and rotate map when moving (Google Maps style)
-    if (_followHeading && currentPoint != null) {
+    // Follow and rotate map when moving (Google Maps navigation style)
+    if (_followHeading && currentPoint != null && _isMapReady) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+        if (!mounted || !_isMapReady) return;
         final double targetRotation = (360.0 - heading) % 360.0;
         final bool shouldMove = _lastCenteredPoint == null ||
             _lastCenteredPoint!.latitude != currentPoint.latitude ||
@@ -57,7 +59,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
           try {
             _mapController.moveAndRotate(
               currentPoint,
-              _mapController.camera.zoom.clamp(16.0, 18.0),
+              17.0,
               targetRotation,
             );
           } catch (_) {}
@@ -128,7 +130,16 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                         initialCenter: displayCenter,
                         initialZoom: 17.0,
                         initialRotation: (360.0 - heading) % 360.0,
-                        onPositionChanged: (pos, hasGesture) {
+                        onMapReady: () {
+                          if (mounted) {
+                            setState(() {
+                              _isMapReady = true;
+                              _currentMapRotation = (360.0 - heading) % 360.0;
+                            });
+                          }
+                        },
+                        onPositionChanged: (camera, hasGesture) {
+                          _currentMapRotation = camera.rotation;
                           if (hasGesture && _followHeading) {
                             setState(() => _followHeading = false);
                           }
@@ -161,7 +172,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                                   // Otherwise, orient arrow in the direction of heading relative to current map rotation.
                                   angle: _followHeading
                                       ? 0.0
-                                      : ((heading + _mapController.camera.rotation) * (pi / 180.0)),
+                                      : ((heading + _currentMapRotation) * (pi / 180.0)),
                                   child: Container(
                                     decoration: BoxDecoration(
                                       color: AppColors.forestGreen,
@@ -201,7 +212,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                           GestureDetector(
                             onTap: () {
                               setState(() => _followHeading = false);
-                              _mapController.rotate(0.0);
+                              if (_isMapReady) {
+                                try {
+                                  _mapController.rotate(0.0);
+                                  _currentMapRotation = 0.0;
+                                } catch (_) {}
+                              }
                             },
                             child: Container(
                               width: 40,
@@ -219,7 +235,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                               ),
                               child: Center(
                                 child: Transform.rotate(
-                                  angle: -(_mapController.camera.rotation * (pi / 180.0)),
+                                  angle: -(_currentMapRotation * (pi / 180.0)),
                                   child: const Icon(
                                     Icons.explore_rounded,
                                     color: Colors.redAccent,
@@ -235,12 +251,14 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                           GestureDetector(
                             onTap: () {
                               setState(() => _followHeading = true);
-                              if (currentPoint != null) {
-                                _mapController.moveAndRotate(
-                                  currentPoint,
-                                  17.0,
-                                  (360.0 - heading) % 360.0,
-                                );
+                              if (currentPoint != null && _isMapReady) {
+                                try {
+                                  _mapController.moveAndRotate(
+                                    currentPoint,
+                                    17.0,
+                                    (360.0 - heading) % 360.0,
+                                  );
+                                } catch (_) {}
                               }
                             },
                             child: Container(
