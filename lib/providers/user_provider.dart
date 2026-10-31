@@ -3,6 +3,7 @@ import '../models/activity_session.dart';
 import '../models/habit_item.dart';
 import '../models/tempo_config.dart';
 import '../models/user_profile.dart';
+import '../services/notification_service.dart';
 import '../services/storage_service.dart';
 
 class UserProvider extends ChangeNotifier {
@@ -33,6 +34,13 @@ class UserProvider extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+
+    // Request notification permissions on app launch / restart and schedule habits
+    try {
+      await NotificationService.initialize();
+      await NotificationService.requestPermissions();
+      await NotificationService.scheduleHabitNotifications(_profile.habits, _profile.languageCode);
+    } catch (_) {}
   }
 
   // Reload sessions from disk
@@ -68,11 +76,11 @@ class UserProvider extends ChangeNotifier {
     return _allSessions.take(3).toList();
   }
 
-  // Change Language
+  // Set Language
   Future<void> setLanguage(String code) async {
-    if (_profile.languageCode == code) return;
     _profile = _profile.copyWith(languageCode: code);
     await StorageService.saveProfile(_profile);
+    await NotificationService.scheduleHabitNotifications(_profile.habits, code);
     notifyListeners();
   }
 
@@ -83,18 +91,22 @@ class UserProvider extends ChangeNotifier {
     required List<HabitItem> habits,
   }) async {
     _profile = _profile.copyWith(
-      name: name.trim().isEmpty ? 'Spacerowicz' : name.trim(),
+      name: name,
       weeklyGoalKm: weeklyGoalKm,
       habits: habits,
       isOnboardingCompleted: true,
-      streakWeeks: 1,
     );
     await StorageService.saveProfile(_profile);
+    await NotificationService.requestPermissions();
+    await NotificationService.scheduleHabitNotifications(_profile.habits, _profile.languageCode);
     notifyListeners();
   }
 
   // Update Goal
-  Future<void> updateGoal({required double newGoalKm, required bool forNextWeek}) async {
+  Future<void> updateGoal({
+    required double newGoalKm,
+    bool forNextWeek = true,
+  }) async {
     if (forNextWeek) {
       _profile = _profile.copyWith(nextWeekGoalKm: newGoalKm);
     } else {
@@ -115,6 +127,7 @@ class UserProvider extends ChangeNotifier {
   Future<void> updateHabits(List<HabitItem> habits) async {
     _profile = _profile.copyWith(habits: habits);
     await StorageService.saveProfile(_profile);
+    await NotificationService.scheduleHabitNotifications(_profile.habits, _profile.languageCode);
     notifyListeners();
   }
 

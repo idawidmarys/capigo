@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
 
 class LocationService {
@@ -24,31 +26,66 @@ class LocationService {
     return true;
   }
 
-  // Get current one-time position
+  // Get current one-time position quickly
   static Future<Position?> getCurrentPosition() async {
     try {
       final hasPerm = await handlePermission();
       if (!hasPerm) return null;
 
+      try {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null && DateTime.now().difference(last.timestamp).inMinutes < 5) {
+          return last;
+        }
+      } catch (_) {}
+
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
+          timeLimit: Duration(seconds: 6),
         ),
       );
     } catch (_) {
-      return null;
+      try {
+        return await Geolocator.getLastKnownPosition();
+      } catch (_) {
+        return null;
+      }
     }
   }
 
-  // Position stream for tracking
-  static Stream<Position> getPositionStream({int distanceFilter = 3}) {
-    return Geolocator.getPositionStream(
-      locationSettings: LocationSettings(
+  // Position stream for tracking with background support
+  static Stream<Position> getPositionStream({int distanceFilter = 2}) {
+    LocationSettings settings;
+
+    if (!kIsWeb && Platform.isIOS) {
+      settings = AppleSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        activityType: ActivityType.fitness,
+        distanceFilter: distanceFilter,
+        pauseLocationUpdatesAutomatically: false,
+        showBackgroundLocationIndicator: true,
+        allowBackgroundLocationUpdates: true,
+      );
+    } else if (!kIsWeb && Platform.isAndroid) {
+      settings = AndroidSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         distanceFilter: distanceFilter,
-      ),
-    );
+        intervalDuration: const Duration(seconds: 1),
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationTitle: "CapiGo - Spacer w toku 🦫",
+          notificationText: "Zapisywanie trasy i parametrów spaceru...",
+          enableWakeLock: true,
+        ),
+      );
+    } else {
+      settings = LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: distanceFilter,
+      );
+    }
+
+    return Geolocator.getPositionStream(locationSettings: settings);
   }
 
   // Calculate distance in meters between two lat/lng points

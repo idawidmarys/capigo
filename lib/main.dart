@@ -8,10 +8,12 @@ import 'providers/tracking_provider.dart';
 import 'providers/user_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.initialize();
 
   // Enable DevicePreview on Web/browser preview, but automatically disable on physical iOS device
   final bool enableDevicePreview = kIsWeb || (!kReleaseMode && !Platform.isIOS);
@@ -39,7 +41,7 @@ class CapiGoApp extends StatelessWidget {
     final locale = Locale(userProvider.languageCode);
 
     return MaterialApp(
-      title: 'Weekly Walk',
+      title: 'CapiGo',
       debugShowCheckedModeBanner: false,
       locale: DevicePreview.locale(context) ?? locale,
       builder: DevicePreview.appBuilder,

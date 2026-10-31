@@ -104,11 +104,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _requestPermissionsAndFinish() async {
-    // Request location & activity recognition
+    // Request location, activity recognition & notifications
     try {
       await [
         Permission.location,
         Permission.activityRecognition,
+        Permission.notification,
       ].request();
     } catch (_) {
       // Handled gracefully

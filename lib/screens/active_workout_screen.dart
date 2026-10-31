@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -8,8 +9,18 @@ import '../services/localization_service.dart';
 import '../theme/app_colors.dart';
 import 'workout_report_screen.dart';
 
-class ActiveWorkoutScreen extends StatelessWidget {
+class ActiveWorkoutScreen extends StatefulWidget {
   const ActiveWorkoutScreen({super.key});
+
+  @override
+  State<ActiveWorkoutScreen> createState() => _ActiveWorkoutScreenState();
+}
+
+class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
+  final MapController _mapController = MapController();
+  bool _followHeading = true;
+  double _lastAnimatedHeading = 0.0;
+  LatLng? _lastCenteredPoint;
 
   @override
   Widget build(BuildContext context) {
@@ -21,9 +32,38 @@ class ActiveWorkoutScreen extends StatelessWidget {
         .map((p) => LatLng(p.latitude, p.longitude))
         .toList();
 
-    final LatLng centerPoint = polylinePoints.isNotEmpty
+    final LatLng? currentPoint = polylinePoints.isNotEmpty
         ? polylinePoints.last
-        : const LatLng(52.2297, 21.0122);
+        : (tracking.lastPosition != null
+            ? LatLng(tracking.lastPosition!.latitude, tracking.lastPosition!.longitude)
+            : null);
+
+    final LatLng displayCenter = currentPoint ?? const LatLng(52.2297, 21.0122);
+    final double heading = tracking.currentHeading;
+
+    // Follow and rotate map when moving (Google Maps style)
+    if (_followHeading && currentPoint != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final double targetRotation = (360.0 - heading) % 360.0;
+        final bool shouldMove = _lastCenteredPoint == null ||
+            _lastCenteredPoint!.latitude != currentPoint.latitude ||
+            _lastCenteredPoint!.longitude != currentPoint.longitude ||
+            (_lastAnimatedHeading - targetRotation).abs() > 2.0;
+
+        if (shouldMove) {
+          _lastCenteredPoint = currentPoint;
+          _lastAnimatedHeading = targetRotation;
+          try {
+            _mapController.moveAndRotate(
+              currentPoint,
+              _mapController.camera.zoom.clamp(16.0, 18.0),
+              targetRotation,
+            );
+          } catch (_) {}
+        }
+      });
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -63,7 +103,7 @@ class ActiveWorkoutScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // OpenStreetMap Polyline Tracking
+          // OpenStreetMap Polyline Tracking with Heading Rotation
           Expanded(
             flex: 5,
             child: Container(
@@ -80,49 +120,191 @@ class ActiveWorkoutScreen extends StatelessWidget {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(24),
-                child: FlutterMap(
-                  options: MapOptions(
-                    initialCenter: centerPoint,
-                    initialZoom: 16.5,
-                  ),
+                child: Stack(
                   children: [
-                    TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.capigo.weeklywalk',
-                    ),
-                    if (polylinePoints.length > 1)
-                      PolylineLayer(
-                        polylines: [
-                          Polyline(
-                            points: polylinePoints,
-                            strokeWidth: 5.0,
-                            color: AppColors.forestGreen,
-                          ),
-                        ],
+                    FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: displayCenter,
+                        initialZoom: 17.0,
+                        initialRotation: (360.0 - heading) % 360.0,
+                        onPositionChanged: (pos, hasGesture) {
+                          if (hasGesture && _followHeading) {
+                            setState(() => _followHeading = false);
+                          }
+                        },
                       ),
-                    if (polylinePoints.isNotEmpty)
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            point: polylinePoints.last,
-                            width: 26,
-                            height: 26,
-                            child: Container(
-                              decoration: BoxDecoration(
+                      children: [
+                        TileLayer(
+                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.capigo.weeklywalk',
+                        ),
+                        if (polylinePoints.length > 1)
+                          PolylineLayer(
+                            polylines: [
+                              Polyline(
+                                points: polylinePoints,
+                                strokeWidth: 5.0,
                                 color: AppColors.forestGreen,
+                              ),
+                            ],
+                          ),
+                        if (currentPoint != null)
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: currentPoint,
+                                width: 36,
+                                height: 36,
+                                child: Transform.rotate(
+                                  // If following heading, the map is rotated so user points straight UP (0 rad).
+                                  // Otherwise, orient arrow in the direction of heading relative to current map rotation.
+                                  angle: _followHeading
+                                      ? 0.0
+                                      : ((heading + _mapController.camera.rotation) * (pi / 180.0)),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: AppColors.forestGreen,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 3),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Colors.black26,
+                                          blurRadius: 6,
+                                          offset: Offset(0, 2),
+                                        )
+                                      ],
+                                    ),
+                                    child: const Center(
+                                      child: Icon(
+                                        Icons.navigation_rounded,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+
+                    // Floating Controls: Compass & Follow Bearing (Google Maps style)
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Compass button: resets to North
+                          GestureDetector(
+                            onTap: () {
+                              setState(() => _followHeading = false);
+                              _mapController.rotate(0.0);
+                            },
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 3),
                                 boxShadow: const [
                                   BoxShadow(
-                                    color: Colors.black26,
-                                    blurRadius: 4,
+                                    color: Colors.black12,
+                                    blurRadius: 6,
                                     offset: Offset(0, 2),
                                   )
                                 ],
                               ),
+                              child: Center(
+                                child: Transform.rotate(
+                                  angle: -(_mapController.camera.rotation * (pi / 180.0)),
+                                  child: const Icon(
+                                    Icons.explore_rounded,
+                                    color: Colors.redAccent,
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Follow / Center button
+                          GestureDetector(
+                            onTap: () {
+                              setState(() => _followHeading = true);
+                              if (currentPoint != null) {
+                                _mapController.moveAndRotate(
+                                  currentPoint,
+                                  17.0,
+                                  (360.0 - heading) % 360.0,
+                                );
+                              }
+                            },
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: _followHeading ? AppColors.forestGreen : Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black12,
+                                    blurRadius: 6,
+                                    offset: Offset(0, 2),
+                                  )
+                                ],
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  _followHeading ? Icons.navigation_rounded : Icons.my_location_rounded,
+                                  color: _followHeading ? Colors.white : AppColors.textDark,
+                                  size: 20,
+                                ),
+                              ),
                             ),
                           ),
                         ],
+                      ),
+                    ),
+
+                    // Loading overlay if waiting for initial GPS lock
+                    if (currentPoint == null)
+                      Container(
+                        color: Colors.black26,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.forestGreen,
+                                  ),
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Pobieranie Twojej lokalizacji GPS...',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                   ],
                 ),
@@ -303,10 +485,9 @@ class ActiveWorkoutScreen extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
             color: AppColors.textSecondary,
-            letterSpacing: 1.0,
           ),
         ),
         const SizedBox(height: 4),
@@ -318,19 +499,20 @@ class ActiveWorkoutScreen extends StatelessWidget {
             Text(
               value,
               style: TextStyle(
-                fontSize: isLarge ? 32 : 20,
-                fontWeight: FontWeight.w800,
+                fontSize: isLarge ? 36 : 22,
+                fontWeight: FontWeight.w900,
                 color: valueColor ?? AppColors.textDark,
+                letterSpacing: -0.5,
               ),
             ),
             if (unit.isNotEmpty) ...[
               const SizedBox(width: 3),
               Text(
                 unit,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
+                style: TextStyle(
+                  fontSize: isLarge ? 14 : 12,
+                  fontWeight: FontWeight.bold,
+                  color: valueColor ?? AppColors.textSecondary,
                 ),
               ),
             ],

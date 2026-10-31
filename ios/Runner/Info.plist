@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>CapiGo: WeeklyWalk</string>
+	<string>CapiGo</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>CapiGo wymaga dostepu do lokalizacji, aby rejestrowac trase spaceru, truchtu i biegu.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
@@ -17,6 +17,8 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>location</string>
+		<string>fetch</string>
+		<string>processing</string>
 	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>

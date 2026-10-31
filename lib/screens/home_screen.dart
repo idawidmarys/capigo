@@ -86,6 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final progress = userProvider.weeklyProgress;
     final kmLeft = userProvider.kmLeftToGoal;
     final last3 = userProvider.last3Sessions;
+    final tracking = context.watch<TrackingProvider>();
 
     return RefreshIndicator(
       onRefresh: () => userProvider.reloadSessions(),
@@ -253,6 +254,96 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
 
+          if (tracking.isTracking) ...[
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ActiveWorkoutScreen(),
+                  ),
+                );
+                userProvider.reloadSessions();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: tracking.isPaused
+                        ? [const Color(0xFFF57C00), const Color(0xFFFFB74D)]
+                        : [AppColors.forestGreen, const Color(0xFF388E3C)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (tracking.isPaused ? const Color(0xFFF57C00) : AppColors.forestGreen)
+                          .withValues(alpha: 0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        tracking.isPaused ? Icons.pause_rounded : Icons.directions_walk_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: tracking.isPaused ? Colors.amberAccent : Colors.lightGreenAccent,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                tracking.isPaused ? 'Spacer wstrzymany' : 'Spacer w toku',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '${tracking.distanceKm.toStringAsFixed(2)} km  •  ${tracking.formattedDuration}  •  ${tracking.steps} kroków',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withValues(alpha: 0.95),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 16),
+                  ],
+                ),
+              ),
+            ),
+          ],
+
           const SizedBox(height: 16),
 
           // Streak / Regularity Card (One star, week streak counter)
@@ -418,17 +509,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SizedBox(height: 18),
 
-          // Big Forest Green Button: "Rozpocznij spacer" ->
+          // Big Action Button: "Rozpocznij spacer" or "Wróć do aktywnego spaceru"
           SizedBox(
             width: double.infinity,
             child: Material(
-              color: AppColors.forestGreen,
+              color: tracking.isTracking ? const Color(0xFF1E3A2F) : AppColors.forestGreen,
               borderRadius: BorderRadius.circular(22),
               elevation: 0,
               child: InkWell(
                 borderRadius: BorderRadius.circular(22),
                 onTap: () async {
-                  final tracking = context.read<TrackingProvider>();
+                  if (tracking.isTracking) {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ActiveWorkoutScreen(),
+                      ),
+                    );
+                    userProvider.reloadSessions();
+                    return;
+                  }
+
                   final navigator = Navigator.of(context);
                   final messenger = ScaffoldMessenger.of(context);
 
@@ -460,7 +560,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              LocalizationService.tr('start_walk', lang),
+                              tracking.isTracking
+                                  ? (tracking.isPaused ? 'Spacer wstrzymany — Wróć do trasy' : 'Spacer w toku — Wróć do trasy')
+                                  : LocalizationService.tr('start_walk', lang),
                               style: const TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,
@@ -469,7 +571,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              LocalizationService.tr('start_walk_sub', lang),
+                              tracking.isTracking
+                                  ? '${tracking.distanceKm.toStringAsFixed(2)} km  •  ${tracking.formattedDuration}'
+                                  : LocalizationService.tr('start_walk_sub', lang),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.white.withValues(alpha: 0.8),
@@ -485,8 +589,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: Colors.white.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
-                          Icons.arrow_forward_rounded,
+                        child: Icon(
+                          tracking.isTracking ? Icons.navigation_rounded : Icons.arrow_forward_rounded,
                           color: Colors.white,
                           size: 20,
                         ),

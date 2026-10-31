@@ -310,7 +310,7 @@ class SettingsScreen extends StatelessWidget {
             child: Column(
               children: [
                 const Text(
-                  'CapiGo: Weekly Walk',
+                  'CapiGo',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: AppColors.textSecondary,
