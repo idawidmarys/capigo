@@ -319,7 +319,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  lang == 'pl' ? 'Wersja 1.0.1' : 'Version 1.0.1',
+                  lang == 'pl' ? 'Wersja 1.0.2' : 'Version 1.0.2',
                   style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                 ),
               ],
