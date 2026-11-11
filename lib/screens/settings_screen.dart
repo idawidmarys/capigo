@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/activity_type.dart';
 import '../models/habit_item.dart';
 import '../providers/user_provider.dart';
 import '../services/localization_service.dart';
@@ -15,6 +16,7 @@ class SettingsScreen extends StatelessWidget {
     final userProvider = context.watch<UserProvider>();
     final profile = userProvider.profile;
     final lang = userProvider.languageCode;
+    final activeType = userProvider.activeActivityType;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -30,6 +32,63 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         children: [
+          // Active Mode Card
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: activeType.color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(activeType.icon, color: activeType.color, size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        lang == 'pl' ? 'Aktualny tryb aktywności' : 'Active activity mode',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        activeType.displayNamePl,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: activeType.color,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                OutlinedButton(
+                  onPressed: () => _showModePicker(context, userProvider),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: activeType.color),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  child: Text(
+                    lang == 'pl' ? 'Zmień' : 'Change',
+                    style: TextStyle(color: activeType.color, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
           // Profile Card
           Container(
             padding: const EdgeInsets.all(20),
@@ -98,17 +157,17 @@ class SettingsScreen extends StatelessWidget {
               children: [
                 // Goal Edit
                 ListTile(
-                  leading: const Icon(Icons.flag_outlined, color: AppColors.forestGreen),
+                  leading: Icon(Icons.flag_outlined, color: activeType.color),
                   title: Text(
                     LocalizationService.tr('weekly_goal_header', lang),
                     style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textDark),
                   ),
                   subtitle: Text(
-                    '${profile.weeklyGoalKm.toInt()} km${profile.nextWeekGoalKm != null ? ' → ${profile.nextWeekGoalKm!.toInt()} km' : ''}',
+                    '${userProvider.currentModeWeeklyGoal.toInt()} km (${activeType.displayNamePl})',
                     style: const TextStyle(color: AppColors.textSecondary),
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textSecondary),
-                  onTap: () => _showEditGoalDialog(context, profile.weeklyGoalKm),
+                  onTap: () => _showEditGoalDialog(context, userProvider.currentModeWeeklyGoal, activeType),
                 ),
                 const Divider(height: 1, indent: 56, color: AppColors.divider),
 
@@ -172,7 +231,7 @@ class SettingsScreen extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.all(20),
                     child: Text(
-                      lang == 'pl' ? 'Brak zdefiniowanych powodów do spaceru.' : 'No walk reasons defined.',
+                      lang == 'pl' ? 'Brak zdefiniowanych powodów do aktywności.' : 'No activity reasons defined.',
                       style: const TextStyle(color: AppColors.textSecondary),
                     ),
                   )
@@ -319,7 +378,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  lang == 'pl' ? 'Wersja 1.0.4' : 'Version 1.0.4',
+                  lang == 'pl' ? 'Wersja 1.0.5' : 'Version 1.0.5',
                   style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
                 ),
               ],
@@ -331,33 +390,84 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  void _showEditGoalDialog(BuildContext context, double currentGoal) {
+  void _showModePicker(BuildContext context, UserProvider userProvider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Text(
+                'Wybierz aktywność',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...ActivityType.userSelectableModes.map((type) {
+              final isSelected = type == userProvider.activeActivityType;
+              final currentGoal = userProvider.profile.getGoalForMode(type);
+              return ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: type.color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(type.icon, color: type.color, size: 24),
+                ),
+                title: Text(
+                  type.displayNamePl,
+                  style: TextStyle(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                    color: isSelected ? type.color : AppColors.textDark,
+                  ),
+                ),
+                subtitle: Text('Cel: ${currentGoal.toInt()} km / tydzień'),
+                trailing: isSelected ? Icon(Icons.check_circle_rounded, color: type.color) : null,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  userProvider.setActiveActivityType(type);
+                },
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditGoalDialog(BuildContext context, double currentGoal, ActivityType activeType) {
     double tempGoal = currentGoal;
     double maxGoal = currentGoal > 50 ? (currentGoal + 10) : 50.0;
-    bool nextWeekOnly = true;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Edytuj cel tygodniowy'),
+          title: Text('Edytuj cel: ${activeType.displayNamePl}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 '${tempGoal.toInt()} km',
-                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.forestGreen),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: activeType.color),
               ),
               Row(
                 children: [
                   Expanded(
                     child: Slider(
-                      value: tempGoal.clamp(3.0, maxGoal),
-                      min: 3,
+                      value: tempGoal.clamp(1.0, maxGoal),
+                      min: 1,
                       max: maxGoal,
-                      divisions: (maxGoal - 3).toInt(),
-                      activeColor: AppColors.forestGreen,
+                      divisions: (maxGoal - 1).toInt(),
+                      activeColor: activeType.color,
                       onChanged: (v) => setDialogState(() => tempGoal = v),
                     ),
                   ),
@@ -376,27 +486,20 @@ class SettingsScreen extends StatelessWidget {
                           width: 38,
                           height: 38,
                           decoration: BoxDecoration(
-                            color: AppColors.softGreenTint,
+                            color: activeType.color.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.add_rounded, color: AppColors.forestGreen, size: 22),
+                          child: Icon(Icons.add_rounded, color: activeType.color, size: 22),
                         ),
                         const SizedBox(height: 2),
-                        const Text(
+                        Text(
                           'Więcej',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.forestGreen),
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: activeType.color),
                         ),
                       ],
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 12),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Obowiązuje od przyszłego tygodnia', style: TextStyle(fontSize: 13)),
-                value: nextWeekOnly,
-                onChanged: (val) => setDialogState(() => nextWeekOnly = val ?? true),
               ),
             ],
           ),
@@ -407,13 +510,10 @@ class SettingsScreen extends StatelessWidget {
             ),
             ElevatedButton(
               onPressed: () {
-                context.read<UserProvider>().updateGoal(
-                      newGoalKm: tempGoal,
-                      forNextWeek: nextWeekOnly,
-                    );
+                context.read<UserProvider>().setGoalForMode(activeType, tempGoal);
                 Navigator.pop(ctx);
               },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.forestGreen),
+              style: ElevatedButton.styleFrom(backgroundColor: activeType.color),
               child: const Text('Zapisz'),
             ),
           ],
@@ -421,6 +521,127 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
   }
+
+  void _showLanguagePicker(BuildContext context, UserProvider userProvider) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: LocalizationService.languageNames.entries.map((entry) {
+            final isSelected = entry.key == userProvider.languageCode;
+            return ListTile(
+              leading: Text(
+                LocalizationService.languageFlags[entry.key] ?? '🦫',
+                style: const TextStyle(fontSize: 24),
+              ),
+              title: Text(
+                entry.value,
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? AppColors.forestGreen : AppColors.textDark,
+                ),
+              ),
+              trailing: isSelected
+                  ? const Icon(Icons.check, color: AppColors.forestGreen)
+                  : null,
+              onTap: () {
+                userProvider.setLanguage(entry.key);
+                Navigator.pop(ctx);
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  void _showAddCustomHabitDialog(BuildContext context, UserProvider userProvider, String lang) {
+    final customController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(LocalizationService.tr('add_custom_walk', lang)),
+        content: TextField(
+          controller: customController,
+          decoration: InputDecoration(
+            hintText: lang == 'pl'
+                ? 'np. Spacer po obiedzie, spacer z partnerem'
+                : 'e.g. Afternoon walk, walk with partner',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(LocalizationService.tr('cancel', lang)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final text = customController.text.trim();
+              if (text.isNotEmpty) {
+                final updated = List<HabitItem>.from(userProvider.profile.habits);
+                updated.add(HabitItem(
+                  id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                  titlePl: text,
+                  titleEn: text,
+                  titleDe: text,
+                  titleEs: text,
+                  promptPl: 'Czas na Twój zaplanowany spacer: $text!',
+                  promptEn: 'Time for your scheduled walk: $text!',
+                  promptDe: 'Zeit für deinen geplanten Spaziergang: $text!',
+                  promptEs: '¡Hora de tu paseo programado: $text!',
+                  triggerTime: null,
+                  isCustom: true,
+                ));
+                userProvider.updateHabits(updated);
+              }
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.forestGreen),
+            child: Text(lang == 'pl' ? 'Dodaj' : 'Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmResetApp(BuildContext context, UserProvider userProvider, String lang) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          LocalizationService.tr('reset_dialog_title', lang),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          LocalizationService.tr('reset_dialog_desc', lang),
+          style: const TextStyle(fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(LocalizationService.tr('cancel', lang)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await userProvider.resetApp();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+            ),
+            child: Text(LocalizationService.tr('reset_app', lang)),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
   void _showLanguagePicker(BuildContext context, UserProvider userProvider) {
     showModalBottomSheet(
