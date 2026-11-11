@@ -81,47 +81,56 @@ class StorageService {
   // Helper: check weekly streak advancement
   static Future<UserProfile> checkAndAdvanceStreak(UserProfile profile, List<ActivitySession> sessions) async {
     final now = DateTime.now();
-    // Calculate simple week number of year
     final int currentWeekOfYear = ((now.difference(DateTime(now.year, 1, 1)).inDays) / 7).floor() + 1;
     final int currentWeekTag = now.year * 100 + currentWeekOfYear;
 
-    if (profile.lastActiveWeekYear != currentWeekTag) {
-      // It's a new week or first time initialization
-      if (profile.lastActiveWeekYear != 0) {
-        // Evaluate previous week total km
-        final previousWeekStart = DateTime(now.year, now.month, now.day)
-            .subtract(Duration(days: now.weekday - 1 + 7));
-        final previousWeekEnd = DateTime(now.year, now.month, now.day)
-            .subtract(Duration(days: now.weekday - 1));
+    final double goal = profile.getGoalForMode(profile.activeActivityType);
+    final currentWeekStart = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
 
-        final prevWeekKm = sessions
-            .where((s) => s.startTime.isAfter(previousWeekStart) && s.startTime.isBefore(previousWeekEnd))
-            .fold(0.0, (sum, s) => sum + s.distanceKm);
+    // Calculate km in current week for active mode (or all if user does cross-training)
+    final currentWeekKm = sessions
+        .where((s) => s.startTime.isAfter(currentWeekStart) && s.type == profile.activeActivityType)
+        .fold(0.0, (sum, s) => sum + s.distanceKm);
 
-        int updatedStreak = profile.streakWeeks;
-        if (prevWeekKm >= profile.weeklyGoalKm) {
-          updatedStreak++;
-        }
+    // Count past consecutive weeks that met the goal
+    int pastStreak = 0;
+    for (int i = 1; i <= 52; i++) {
+      final weekStart = currentWeekStart.subtract(Duration(days: 7 * i));
+      final weekEnd = currentWeekStart.subtract(Duration(days: 7 * (i - 1)));
+      final weekKm = sessions
+          .where((s) =>
+              (s.startTime.isAfter(weekStart) || s.startTime.isAtSameMomentAs(weekStart)) &&
+              s.startTime.isBefore(weekEnd) &&
+              s.type == profile.activeActivityType)
+          .fold(0.0, (sum, s) => sum + s.distanceKm);
 
-        double newGoal = profile.weeklyGoalKm;
-        if (profile.nextWeekGoalKm != null) {
-          newGoal = profile.nextWeekGoalKm!;
-        }
-
-        final updatedProfile = profile.copyWith(
-          streakWeeks: updatedStreak,
-          weeklyGoalKm: newGoal,
-          nextWeekGoalKm: null,
-          lastActiveWeekYear: currentWeekTag,
-        );
-        await saveProfile(updatedProfile);
-        return updatedProfile;
+      if (weekKm >= goal) {
+        pastStreak++;
       } else {
-        final updatedProfile = profile.copyWith(lastActiveWeekYear: currentWeekTag);
-        await saveProfile(updatedProfile);
-        return updatedProfile;
+        break;
       }
     }
-    return profile;
+
+    // If current week goal is reached, streak is pastStreak + 2 (meaning next week has started / 2nd week achieved!)
+    final int calculatedStreak = (currentWeekKm >= goal && goal > 0) ? (pastStreak + 2) : (pastStreak + 1);
+
+    double newGoal = profile.weeklyGoalKm;
+    if (profile.lastActiveWeekYear != currentWeekTag && profile.lastActiveWeekYear != 0) {
+      if (profile.nextWeekGoalKm != null) {
+        newGoal = profile.nextWeekGoalKm!;
+      }
+    }
+
+    final updatedProfile = profile.copyWith(
+      streakWeeks: calculatedStreak,
+      weeklyGoalKm: newGoal,
+      nextWeekGoalKm: profile.lastActiveWeekYear != currentWeekTag ? null : profile.nextWeekGoalKm,
+      lastActiveWeekYear: currentWeekTag,
+    );
+
+    if (updatedProfile.streakWeeks != profile.streakWeeks || updatedProfile.lastActiveWeekYear != profile.lastActiveWeekYear) {
+      await saveProfile(updatedProfile);
+    }
+    return updatedProfile;
   }
 }
