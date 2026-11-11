@@ -28,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
     final lang = userProvider.languageCode;
+    final currentType = userProvider.activeActivityType;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -59,9 +60,9 @@ class _HomeScreenState extends State<HomeScreen> {
           onDestinationSelected: (i) => setState(() => _currentTabIndex = i),
           destinations: [
             NavigationDestination(
-              icon: const Icon(Icons.directions_walk_outlined, color: AppColors.textSecondary),
-              selectedIcon: const Icon(Icons.directions_walk_rounded, color: AppColors.forestGreen),
-              label: LocalizationService.tr('tab_walk', lang),
+              icon: Icon(currentType.icon, color: AppColors.textSecondary),
+              selectedIcon: Icon(currentType.icon, color: AppColors.forestGreen),
+              label: currentType.displayNamePl,
             ),
             NavigationDestination(
               icon: const Icon(Icons.history_outlined, color: AppColors.textSecondary),
@@ -81,11 +82,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildWalkTab(BuildContext context, UserProvider userProvider, String lang) {
     final profile = userProvider.profile;
+    final currentType = userProvider.activeActivityType;
     final currentKm = userProvider.currentWeekKm;
-    final goalKm = profile.weeklyGoalKm;
+    final goalKm = userProvider.currentModeWeeklyGoal;
     final progress = userProvider.weeklyProgress;
     final kmLeft = userProvider.kmLeftToGoal;
-    final last3 = userProvider.last3Sessions;
+    final recentSessions = userProvider.recentSessions;
     final tracking = context.watch<TrackingProvider>();
 
     return RefreshIndicator(
@@ -93,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         children: [
-          // Top Bar: Mini capybara logo + Weekly Walk + Tempo + Language flag
+          // Top Bar: Mini capybara logo + Tryb: [Mode] with 3 dots edit button + Tempo + Language
           Row(
             children: [
               Container(
@@ -117,15 +119,45 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
-                LocalizationService.tr('app_title', lang),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.3,
-                  color: AppColors.textDark,
+
+              // Mode pill with 3 dots to edit/switch mode anytime (Requirement 5 & 6)
+              GestureDetector(
+                onTap: () => _showModeSelector(context, userProvider),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(currentType.icon, size: 16, color: currentType.color),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Tryb: ${currentType.displayNamePl}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.2,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.more_horiz_rounded, size: 18, color: AppColors.textSecondary),
+                    ],
+                  ),
                 ),
               ),
+
               const Spacer(),
 
               // Tempo Button
@@ -221,7 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      LocalizationService.tr('greeting_subtitle', lang),
+                      'Gotowy na dzisiejszy ${currentType.actionVerbPl}?',
                       style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.textSecondary,
@@ -294,7 +326,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        tracking.isPaused ? Icons.pause_rounded : Icons.directions_walk_rounded,
+                        tracking.isPaused ? Icons.pause_rounded : tracking.currentType.icon,
                         color: Colors.white,
                         size: 24,
                       ),
@@ -316,7 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                tracking.isPaused ? 'Spacer wstrzymany' : 'Spacer w toku',
+                                tracking.isPaused ? 'Trening wstrzymany' : '${tracking.currentType.displayNamePl} w toku',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -346,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SizedBox(height: 16),
 
-          // Streak / Regularity Card (One star, week streak counter)
+          // Streak / Regularity Card (Requirement 1: accurate streak counting)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
@@ -393,7 +425,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textSecondary),
+                if (progress >= 1.0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.softGreenTint,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      'Cel zaliczony! 🏆',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.forestGreen),
+                    ),
+                  )
+                else
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textSecondary),
               ],
             ),
           ),
@@ -424,7 +469,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          LocalizationService.tr('weekly_goal_header', lang),
+                          '${LocalizationService.tr('weekly_goal_header', lang)} (${currentType.displayNamePl.toUpperCase()})',
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -444,7 +489,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     GestureDetector(
-                      onTap: () => _showEditGoalDialog(context, goalKm),
+                      onTap: () => _showEditGoalDialog(context, goalKm, currentType),
                       child: Row(
                         children: [
                           Text(
@@ -481,7 +526,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: progress,
                     minHeight: 6,
                     backgroundColor: AppColors.softGreenTint,
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.forestGreen),
+                    valueColor: AlwaysStoppedAnimation<Color>(currentType.color),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -495,10 +540,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     Text(
                       '${(progress * 100).toInt()}%',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.forestGreen,
+                        color: currentType.color,
                       ),
                     ),
                   ],
@@ -509,11 +554,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SizedBox(height: 18),
 
-          // Big Action Button: "Rozpocznij spacer" or "Wróć do aktywnego spaceru"
+          // Big Action Button: "Rozpocznij spacer/bieg/rower" or "Wróć do aktywnego treningu"
           SizedBox(
             width: double.infinity,
             child: Material(
-              color: tracking.isTracking ? const Color(0xFF1E3A2F) : AppColors.forestGreen,
+              color: tracking.isTracking ? const Color(0xFF1E3A2F) : currentType.color,
               borderRadius: BorderRadius.circular(22),
               elevation: 0,
               child: InkWell(
@@ -532,7 +577,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   final navigator = Navigator.of(context);
                   final messenger = ScaffoldMessenger.of(context);
 
-                  final success = await tracking.startTracking(ActivityType.walk);
+                  final success = await tracking.startTracking(currentType);
                   if (!context.mounted) return;
 
                   if (success) {
@@ -545,7 +590,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   } else {
                     messenger.showSnackBar(
                       const SnackBar(
-                        content: Text('Wymagany jest dostęp do lokalizacji GPS, aby rozpocząć spacer.'),
+                        content: Text('Wymagany jest dostęp do lokalizacji GPS, aby rozpocząć aktywność.'),
                         backgroundColor: Colors.redAccent,
                       ),
                     );
@@ -561,8 +606,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Text(
                               tracking.isTracking
-                                  ? (tracking.isPaused ? 'Spacer wstrzymany — Wróć do trasy' : 'Spacer w toku — Wróć do trasy')
-                                  : LocalizationService.tr('start_walk', lang),
+                                  ? (tracking.isPaused ? 'Trening wstrzymany — Wróć do trasy' : 'Trening w toku — Wróć do trasy')
+                                  : currentType.startButtonTextPl,
                               style: const TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,
@@ -573,7 +618,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               tracking.isTracking
                                   ? '${tracking.distanceKm.toStringAsFixed(2)} km  •  ${tracking.formattedDuration}'
-                                  : LocalizationService.tr('start_walk_sub', lang),
+                                  : 'Każdy krok przybliża Cię do celu',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.white.withValues(alpha: 0.8),
@@ -604,26 +649,48 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SizedBox(height: 24),
 
-          // Ostatnie spacery header
+          // Header for recent activities with toggle (Requirement 8)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                LocalizationService.tr('recent_walks', lang),
+                'Ostatnie aktywności',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: AppColors.textDark,
                 ),
               ),
+              // Toggle: Only current mode vs All activities
               GestureDetector(
-                onTap: () => setState(() => _currentTabIndex = 1),
-                child: Text(
-                  LocalizationService.tr('show_all_history', lang),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
+                onTap: () => userProvider.toggleAllActivitiesFilter(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: userProvider.showAllActivities ? AppColors.softGreenTint : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: userProvider.showAllActivities ? AppColors.forestGreen : AppColors.border,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        userProvider.showAllActivities ? Icons.apps_rounded : currentType.icon,
+                        size: 13,
+                        color: userProvider.showAllActivities ? AppColors.forestGreen : AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        userProvider.showAllActivities ? 'Wszystkie' : 'Tylko ${currentType.displayNamePl}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: userProvider.showAllActivities ? AppColors.forestGreen : AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -632,8 +699,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SizedBox(height: 12),
 
-          // Last 3 walks timeline
-          if (last3.isEmpty)
+          // Recent activities timeline
+          if (recentSessions.isEmpty)
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -643,15 +710,18 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: Center(
                 child: Text(
-                  LocalizationService.tr('no_walks_yet', lang),
+                  userProvider.showAllActivities
+                      ? 'Brak zapisanych aktywności'
+                      : 'Brak zapisanych aktywności w trybie ${currentType.displayNamePl}',
                   style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                 ),
               ),
             )
           else
-            ...List.generate(last3.length, (index) {
-              final session = last3[index];
-              final ActivitySession? previousSession = (index + 1 < last3.length) ? last3[index + 1] : null;
+            ...List.generate(recentSessions.length, (index) {
+              final session = recentSessions[index];
+              final ActivitySession? previousSession =
+                  (index + 1 < recentSessions.length) ? recentSessions[index + 1] : null;
               final gapText = _formatGap(session.startTime, previousSession?.endTime);
 
               return Column(
@@ -687,6 +757,161 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Modal to switch mode anytime (Requirement 5 & 6)
+  void _showModeSelector(BuildContext context, UserProvider userProvider) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Zmień tryb aktywności',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textDark),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ...ActivityType.userSelectableModes.map((mode) {
+                  final isCurrent = userProvider.activeActivityType == mode;
+                  final goal = userProvider.profile.getGoalForMode(mode);
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: isCurrent ? AppColors.softGreenTint : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isCurrent ? AppColors.forestGreen : AppColors.border,
+                        width: isCurrent ? 2 : 1,
+                      ),
+                    ),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: mode.color.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(mode.icon, color: mode.color, size: 22),
+                      ),
+                      title: Text(
+                        mode.displayNamePl,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isCurrent ? AppColors.forestGreen : AppColors.textDark,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Tygodniowy cel: ${goal.toInt()} km',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      trailing: isCurrent
+                          ? const Icon(Icons.check_circle_rounded, color: AppColors.forestGreen)
+                          : const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        if (isCurrent) return;
+
+                        if (!userProvider.hasGoalForMode(mode)) {
+                          await _showFirstTimeGoalDialog(context, userProvider, mode);
+                        } else {
+                          await userProvider.setActiveActivityType(mode);
+                        }
+                      },
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Prompt goal dialog on first time entering a new mode (Requirement 6)
+  Future<void> _showFirstTimeGoalDialog(BuildContext context, UserProvider userProvider, ActivityType mode) async {
+    double goal = mode.defaultGoalKm;
+    double maxGoal = mode == ActivityType.bike ? 150.0 : 60.0;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Row(
+            children: [
+              Icon(mode.icon, color: mode.color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Tygodniowy cel: ${mode.displayNamePl}',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'To Twoje pierwsze wejście w ten tryb. Ustaw ile kilometrów tygodniowo chcesz pokonać:',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                '${goal.toInt()} km',
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.forestGreen,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Slider(
+                value: goal.clamp(2.0, maxGoal),
+                min: 2,
+                max: maxGoal,
+                divisions: (maxGoal - 2).toInt(),
+                activeColor: AppColors.forestGreen,
+                inactiveColor: AppColors.softGreenTint,
+                onChanged: (v) => setDlgState(() => goal = v),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await userProvider.setGoalForMode(mode, goal);
+                await userProvider.setActiveActivityType(mode);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.forestGreen,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: const Text('Zapisz i zacznij', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildRecentWalkCard(ActivitySession session, String lang) {
     final int min = session.durationSeconds ~/ 60;
     final dateStr = _formatRelativeDate(session.startTime, lang);
@@ -705,12 +930,12 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.softGreenTint,
+              color: session.type.color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(
-              Icons.show_chart_rounded,
-              color: AppColors.forestGreen,
+            child: Icon(
+              session.type.icon,
+              color: session.type.color,
               size: 20,
             ),
           ),
@@ -719,17 +944,42 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  dateStr,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      dateStr,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    if (session.photoPaths.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.softGreenTint,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.photo_camera_rounded, size: 10, color: AppColors.forestGreen),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${session.photoPaths.length}',
+                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.forestGreen),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$min min • ${session.tempoName}',
+                  '$min min • ${session.tempoName} • ${session.calories} kcal',
                   style: const TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
@@ -755,7 +1005,7 @@ class _HomeScreenState extends State<HomeScreen> {
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.all(4),
             constraints: const BoxConstraints(),
-            tooltip: lang == 'pl' ? 'Usuń spacer' : 'Delete walk',
+            tooltip: lang == 'pl' ? 'Usuń aktywność' : 'Delete activity',
             onPressed: () => _confirmDeleteSession(context, session, lang),
           ),
         ],
@@ -764,55 +1014,32 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _confirmDeleteSession(BuildContext context, ActivitySession session, String lang) {
-    final dateStr = DateFormat('dd.MM.yyyy HH:mm').format(session.startTime);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(lang == 'pl' ? 'Usunąć spacer?' : 'Delete walk?'),
+        title: Text(lang == 'pl' ? 'Usunąć aktywność?' : 'Delete activity?'),
         content: Text(
           lang == 'pl'
-              ? 'Czy na pewno chcesz usunąć spacer z $dateStr (${session.distanceKm.toStringAsFixed(1)} km)?'
-              : 'Are you sure you want to delete the walk from $dateStr (${session.distanceKm.toStringAsFixed(1)} km)?',
+              ? 'Czy na pewno chcesz usunąć tę aktywność (${session.distanceKm.toStringAsFixed(2)} km) z historii? Ta operacja jest nieodwracalna.'
+              : 'Are you sure you want to delete this activity (${session.distanceKm.toStringAsFixed(2)} km)? This cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(lang == 'pl' ? 'Anuluj' : 'Cancel'),
+            child: Text(LocalizationService.tr('cancel', lang)),
           ),
           ElevatedButton(
-            onPressed: () {
-              context.read<UserProvider>().deleteSession(session.id);
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(lang == 'pl' ? 'Spacer został usunięty.' : 'Walk deleted.'),
-                  backgroundColor: Colors.redAccent,
-                ),
-              );
-            },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: Text(lang == 'pl' ? 'Usuń' : 'Delete'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<UserProvider>().deleteSession(session.id);
+            },
+            child: Text(lang == 'pl' ? 'Usuń' : 'Delete', style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
-  }
-
-  String _formatRelativeDate(DateTime time, String lang) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final sessionDay = DateTime(time.year, time.month, time.day);
-    final timeStr = DateFormat('HH:mm').format(time);
-
-    if (sessionDay == today) {
-      return '${LocalizationService.tr('today', lang)} • $timeStr';
-    } else if (sessionDay == today.subtract(const Duration(days: 1))) {
-      return '${LocalizationService.tr('yesterday', lang)} • $timeStr';
-    } else {
-      final weekday = DateFormat('EEEE', lang).format(time);
-      return '${weekday[0].toUpperCase()}${weekday.substring(1)} • $timeStr';
-    }
   }
 
   String _formatGap(DateTime current, DateTime? previous) {
@@ -820,81 +1047,63 @@ class _HomeScreenState extends State<HomeScreen> {
     final diff = current.difference(previous).abs();
     if (diff.inDays > 0) {
       final hours = diff.inHours % 24;
-      return '${diff.inDays}d ${hours}h odstępu';
+      return '$diff.inDays d $hours h odstępu';
     } else if (diff.inHours > 0) {
       final mins = diff.inMinutes % 60;
-      return '${diff.inHours}h ${mins}m odstępu';
+      return '$diff.inHours h $mins m odstępu';
     } else {
-      return '${diff.inMinutes}m odstępu';
+      return '$diff.inMinutes m odstępu';
     }
   }
 
-  void _showEditGoalDialog(BuildContext context, double currentGoal) {
+  String _formatRelativeDate(DateTime date, String lang) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dateDay = DateTime(date.year, date.month, date.day);
+
+    if (dateDay == today) {
+      final timeStr = DateFormat('HH:mm').format(date);
+      return '${LocalizationService.tr('today', lang)}, $timeStr';
+    }
+    final yesterday = today.subtract(const Duration(days: 1));
+    if (dateDay == yesterday) {
+      final timeStr = DateFormat('HH:mm').format(date);
+      return '${LocalizationService.tr('yesterday', lang)}, $timeStr';
+    }
+    return DateFormat('dd.MM, HH:mm').format(date);
+  }
+
+  void _showEditGoalDialog(BuildContext context, double currentGoal, ActivityType mode) {
     double tempGoal = currentGoal;
-    double maxGoal = currentGoal > 50 ? (currentGoal + 10) : 50.0;
-    bool nextWeekOnly = true;
+    double maxGoal = mode == ActivityType.bike ? 150.0 : 60.0;
+    final userProvider = context.read<UserProvider>();
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Edytuj cel tygodniowy'),
+        builder: (context, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text('Cel tygodniowy: ${mode.displayNamePl}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 '${tempGoal.toInt()} km',
-                style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.forestGreen),
+                style: const TextStyle(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.forestGreen,
+                ),
               ),
-              Row(
-                children: [
-                  Expanded(
-                    child: Slider(
-                      value: tempGoal.clamp(3.0, maxGoal),
-                      min: 3,
-                      max: maxGoal,
-                      divisions: (maxGoal - 3).toInt(),
-                      activeColor: AppColors.forestGreen,
-                      onChanged: (v) => setDialogState(() => tempGoal = v),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () {
-                      setDialogState(() {
-                        maxGoal += 10;
-                        tempGoal += 5;
-                      });
-                    },
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: AppColors.softGreenTint,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.add_rounded, color: AppColors.forestGreen, size: 22),
-                        ),
-                        const SizedBox(height: 2),
-                        const Text(
-                          'Więcej',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.forestGreen),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Od przyszłego tygodnia', style: TextStyle(fontSize: 13)),
-                value: nextWeekOnly,
-                onChanged: (val) => setDialogState(() => nextWeekOnly = val ?? true),
+              const SizedBox(height: 16),
+              Slider(
+                value: tempGoal.clamp(2.0, maxGoal),
+                min: 2,
+                max: maxGoal,
+                divisions: (maxGoal - 2).toInt(),
+                activeColor: AppColors.forestGreen,
+                inactiveColor: AppColors.softGreenTint,
+                onChanged: (v) => setDlgState(() => tempGoal = v),
               ),
             ],
           ),
@@ -905,14 +1114,14 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                context.read<UserProvider>().updateGoal(
-                      newGoalKm: tempGoal,
-                      forNextWeek: nextWeekOnly,
-                    );
+                userProvider.setGoalForMode(mode, tempGoal);
                 Navigator.pop(ctx);
               },
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.forestGreen),
-              child: const Text('Zapisz'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.forestGreen,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: const Text('Zapisz', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             ),
           ],
         ),
