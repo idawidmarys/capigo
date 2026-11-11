@@ -1,5 +1,7 @@
+import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import '../models/activity_session.dart';
+import '../models/activity_type.dart';
 import '../models/habit_item.dart';
 import '../models/tempo_config.dart';
 import '../models/user_profile.dart';
@@ -10,12 +12,60 @@ class UserProvider extends ChangeNotifier {
   UserProfile _profile = UserProfile.defaultProfile();
   List<ActivitySession> _allSessions = [];
   bool _isLoading = true;
+  bool _showAllActivities = false;
 
   UserProfile get profile => _profile;
   String get languageCode => _profile.languageCode;
   List<ActivitySession> get allSessions => List.unmodifiable(_allSessions);
   bool get isLoading => _isLoading;
   bool get isOnboardingCompleted => _profile.isOnboardingCompleted;
+  ActivityType get activeActivityType => _profile.activeActivityType;
+  bool get showAllActivities => _showAllActivities;
+
+  void toggleAllActivitiesFilter() {
+    _showAllActivities = !_showAllActivities;
+    notifyListeners();
+  }
+
+  void setShowAllActivities(bool value) {
+    if (_showAllActivities != value) {
+      _showAllActivities = value;
+      notifyListeners();
+    }
+  }
+
+  // Active mode's weekly goal
+  double get currentModeWeeklyGoal => _profile.getGoalForMode(_profile.activeActivityType);
+
+  bool hasGoalForMode(ActivityType type) => _profile.hasGoalForMode(type);
+
+  // Switch mode
+  Future<void> setActiveActivityType(ActivityType type) async {
+    if (_profile.activeActivityType == type) return;
+    _profile = _profile.copyWith(activeActivityType: type);
+    await StorageService.saveProfile(_profile);
+    _profile = await StorageService.checkAndAdvanceStreak(_profile, _allSessions);
+    notifyListeners();
+  }
+
+  // Set goal for specific mode
+  Future<void> setGoalForMode(ActivityType type, double goalKm) async {
+    final Map<String, double> updated = Map.from(_profile.modeWeeklyGoals);
+    updated[type.name] = goalKm;
+
+    if (_profile.activeActivityType == type) {
+      _profile = _profile.copyWith(
+        weeklyGoalKm: goalKm,
+        modeWeeklyGoals: updated,
+      );
+    } else {
+      _profile = _profile.copyWith(modeWeeklyGoals: updated);
+    }
+
+    await StorageService.saveProfile(_profile);
+    _profile = await StorageService.checkAndAdvanceStreak(_profile, _allSessions);
+    notifyListeners();
+  }
 
   // Initialize
   Future<void> init() async {
@@ -50,8 +100,17 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Total KM in current week
+  // Total KM in current week for active mode
   double get currentWeekKm {
+    final now = DateTime.now();
+    final startOfWeek = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
+    return _allSessions
+        .where((s) => s.startTime.isAfter(startOfWeek) && s.type == _profile.activeActivityType)
+        .fold(0.0, (sum, s) => sum + s.distanceKm);
+  }
+
+  // Total KM in current week for all activities
+  double get allActivitiesWeekKm {
     final now = DateTime.now();
     final startOfWeek = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
     return _allSessions
@@ -59,21 +118,25 @@ class UserProvider extends ChangeNotifier {
         .fold(0.0, (sum, s) => sum + s.distanceKm);
   }
 
-  // Progress 0.0 .. 1.0
+  // Progress 0.0 .. 1.0 for active mode
   double get weeklyProgress {
-    if (_profile.weeklyGoalKm <= 0) return 0.0;
-    return (currentWeekKm / _profile.weeklyGoalKm).clamp(0.0, 1.0);
+    final goal = currentModeWeeklyGoal;
+    if (goal <= 0) return 0.0;
+    return (currentWeekKm / goal).clamp(0.0, 1.0);
   }
 
-  // Km left to goal
+  // Km left to goal for active mode
   double get kmLeftToGoal {
-    final diff = _profile.weeklyGoalKm - currentWeekKm;
+    final diff = currentModeWeeklyGoal - currentWeekKm;
     return diff > 0 ? diff : 0.0;
   }
 
-  // Last 3 sessions for home screen
-  List<ActivitySession> get last3Sessions {
-    return _allSessions.take(3).toList();
+  // Sessions for home screen based on active toggle
+  List<ActivitySession> get recentSessions {
+    final source = _showAllActivities
+        ? _allSessions
+        : _allSessions.where((s) => s.type == _profile.activeActivityType).toList();
+    return source.take(4).toList();
   }
 
   // Set Language
@@ -84,15 +147,21 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Complete Onboarding
+  // Complete Onboarding with mode and goal
   Future<void> completeOnboarding({
     required String name,
+    required ActivityType activityType,
     required double weeklyGoalKm,
     required List<HabitItem> habits,
   }) async {
+    final Map<String, double> goals = Map.from(_profile.modeWeeklyGoals);
+    goals[activityType.name] = weeklyGoalKm;
+
     _profile = _profile.copyWith(
       name: name,
+      activeActivityType: activityType,
       weeklyGoalKm: weeklyGoalKm,
+      modeWeeklyGoals: goals,
       habits: habits,
       isOnboardingCompleted: true,
     );
@@ -110,7 +179,8 @@ class UserProvider extends ChangeNotifier {
     if (forNextWeek) {
       _profile = _profile.copyWith(nextWeekGoalKm: newGoalKm);
     } else {
-      _profile = _profile.copyWith(weeklyGoalKm: newGoalKm);
+      await setGoalForMode(_profile.activeActivityType, newGoalKm);
+      return;
     }
     await StorageService.saveProfile(_profile);
     notifyListeners();
@@ -146,7 +216,7 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Pick a congratulation message based on user habits
+  // Pick a congratulation message based on user habits and mode
   String getPersonalizedCongratulations(String lang) {
     final activeHabits = _profile.habits.where((h) => h.isEnabled && h.triggerTime != null).toList();
     if (activeHabits.isNotEmpty) {
@@ -154,30 +224,22 @@ class UserProvider extends ChangeNotifier {
       switch (chosen.id) {
         case 'netflix':
           return lang == 'pl'
-              ? 'Gratulacje! Właśnie wykonałeś zdrowy spacer zamiast bezczynnie leżeć przed Netflixem!'
-              : 'Congratulations! You chose a healthy walk over Netflix and snacks!';
+              ? 'Gratulacje! Wspaniała aktywność zamiast bezczynnie leżeć przed Netflixem!'
+              : 'Congratulations! You chose healthy movement over Netflix!';
         case 'tv':
           return lang == 'pl'
-              ? 'Brawo! Zamiast siedzieć przed telewizorem, wybrałeś świeże powietrze i energię!'
-              : 'Great job! Fresh air and steps instead of sitting before the TV!';
+              ? 'Brawo! Zamiast siedzieć przed telewizorem, wybrałeś świeże powietrze i ruch!'
+              : 'Great job! Fresh air and active movement instead of TV!';
         case 'boredom':
           return lang == 'pl'
               ? 'Świetny krok! Zamiast zamulać w domu, zresetowałeś głowę na świeżym powietrzu!'
-              : 'Awesome! You cleared your mind with a great walk instead of feeling sluggish!';
-        case 'coffee_tea':
-          return lang == 'pl'
-              ? 'Wspaniale! Spacer z kawką lub herbatą to najlepsze połączenie relaksu i ruchu!'
-              : 'Wonderful! A coffee walk is the best way to combine relaxation and steps!';
-        case 'walk_dog':
-          return lang == 'pl'
-              ? 'Twój pies na pewno merda ogonem! Wspaniały wspólny spacer!'
-              : 'Your dog must be so happy! A wonderful walk together!';
+              : 'Awesome! You cleared your mind with outdoor movement!';
         default:
           break;
       }
     }
     return lang == 'pl'
-        ? 'Gratulacje! Właśnie wykonałeś zdrowy spacer, budując regularny nawyk!'
-        : 'Congratulations! You just finished a healthy walk, keeping your streak alive!';
+        ? 'Gratulacje! Świetny trening i kolejny krok do regularnego nawyku!'
+        : 'Congratulations! Great activity keeping your healthy streak alive!';
   }
 }
