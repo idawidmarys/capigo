@@ -72,6 +72,58 @@ enum ActivityType {
     }
   }
 
+  String streakText(int weeks, String lang) {
+    if (lang == 'pl') {
+      switch (this) {
+        case ActivityType.walk:
+          return '$weeks. tydzień regularnego spacerowania';
+        case ActivityType.run:
+        case ActivityType.jog:
+          return '$weeks. tydzień regularnego biegania';
+        case ActivityType.bike:
+          return '$weeks. tydzień regularnej jazdy na rowerze';
+        case ActivityType.nordicWalk:
+          return '$weeks. tydzień regularnego nordic walkingu';
+      }
+    } else if (lang == 'de') {
+      switch (this) {
+        case ActivityType.walk:
+          return '$weeks. Woche regelmäßiges Spazierengehen';
+        case ActivityType.run:
+        case ActivityType.jog:
+          return '$weeks. Woche regelmäßiges Laufen';
+        case ActivityType.bike:
+          return '$weeks. Woche regelmäßiges Radfahren';
+        case ActivityType.nordicWalk:
+          return '$weeks. Woche regelmäßiges Nordic Walking';
+      }
+    } else if (lang == 'es') {
+      switch (this) {
+        case ActivityType.walk:
+          return '$weeks.ª semana de paseos regulares';
+        case ActivityType.run:
+        case ActivityType.jog:
+          return '$weeks.ª semana de carreras regulares';
+        case ActivityType.bike:
+          return '$weeks.ª semana de ciclismo regular';
+        case ActivityType.nordicWalk:
+          return '$weeks.ª semana de nordic walking regular';
+      }
+    } else {
+      switch (this) {
+        case ActivityType.walk:
+          return 'Week $weeks of regular walking';
+        case ActivityType.run:
+        case ActivityType.jog:
+          return 'Week $weeks of regular running';
+        case ActivityType.bike:
+          return 'Week $weeks of regular cycling';
+        case ActivityType.nordicWalk:
+          return 'Week $weeks of regular nordic walking';
+      }
+    }
+  }
+
   String get habitQuestionPl {
     switch (this) {
       case ActivityType.walk:

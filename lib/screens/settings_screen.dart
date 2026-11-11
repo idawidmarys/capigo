@@ -134,7 +134,7 @@ class SettingsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${profile.streakWeeks}. ${LocalizationService.tr('streak_suffix', lang)}',
+                        activeType.streakText(profile.streakWeeks, lang),
                         style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                       ),
                     ],

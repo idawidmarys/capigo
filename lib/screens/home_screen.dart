@@ -401,28 +401,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(width: 14),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${LocalizationService.tr('streak_prefix', lang)} ${profile.streakWeeks}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.8,
-                          color: AppColors.forestGreen,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${profile.streakWeeks}. ${LocalizationService.tr('streak_suffix', lang)}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    currentType.streakText(profile.streakWeeks, lang),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textDark,
+                    ),
                   ),
                 ),
                 if (progress >= 1.0)
