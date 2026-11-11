@@ -45,8 +45,8 @@ class AppColors {
 
   // Legacy/Activity colors
   static const Color walkColor = Color(0xFF1E5245);
-  static const Color jogColor = Color(0xFFE9A03A);
-  static const Color runColor = Color(0xFFD9534F);
+  static const Color jogColor = Color(0xFF5E3A87);
+  static const Color runColor = Color(0xFF5E3A87); // Elegancki, lekko ciemny fiolet
 
   // Bulletproof theme helpers (accepts bool or BuildContext)
   static bool isDark([dynamic contextOrBool]) {
