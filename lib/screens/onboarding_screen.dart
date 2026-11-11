@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import '../models/activity_type.dart';
 import '../models/habit_item.dart';
 import '../providers/user_provider.dart';
 import '../services/localization_service.dart';
@@ -21,6 +22,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
 
   final TextEditingController _nameController = TextEditingController(text: 'Maja');
+  ActivityType _selectedMode = ActivityType.walk;
   double _weeklyGoalKm = 12.0;
   double _maxGoalKm = 50.0;
 
@@ -29,7 +31,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
-    _habits = HabitItem.defaultHabits();
+    _habits = HabitItem.defaultHabitsForMode(_selectedMode);
   }
 
   @override
@@ -44,6 +46,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
+  }
+
+  void _onModeSelected(ActivityType type) {
+    setState(() {
+      _selectedMode = type;
+      _weeklyGoalKm = type.defaultGoalKm;
+      _maxGoalKm = type == ActivityType.bike ? 120.0 : 50.0;
+      _habits = HabitItem.defaultHabitsForMode(type);
+    });
   }
 
   Future<void> _pickTimeForHabit(int index) async {
@@ -62,11 +73,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Inny zaplanowany spacer'),
+        title: Text('Własny powód (${_selectedMode.displayNamePl})'),
         content: TextField(
           controller: customController,
+          textCapitalization: TextCapitalization.sentences,
           decoration: const InputDecoration(
-            hintText: 'np. Spacer po obiedzie, spacer z partnerem',
+            hintText: 'np. Wyjście po obiedzie, wspólny trening',
           ),
         ),
         actions: [
@@ -85,10 +97,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     titleEn: text,
                     titleDe: text,
                     titleEs: text,
-                    promptPl: 'Czas na Twój zaplanowany spacer: $text!',
-                    promptEn: 'Time for your scheduled walk: $text!',
-                    promptDe: 'Zeit für deinen geplanten Spaziergang: $text!',
-                    promptEs: '¡Hora de tu paseo programado: $text!',
+                    promptPl: 'Czas na aktywność: $text!',
+                    promptEn: 'Time for your scheduled workout: $text!',
+                    promptDe: 'Zeit für deine geplante Aktivität: $text!',
+                    promptEs: '¡Hora de tu actividad programada: $text!',
                     triggerTime: const TimeOfDay(hour: 17, minute: 0),
                     isCustom: true,
                   ));
@@ -104,20 +116,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _requestPermissionsAndFinish() async {
-    // Request location, activity recognition & notifications
     try {
       await [
         Permission.location,
         Permission.activityRecognition,
         Permission.notification,
       ].request();
-    } catch (_) {
-      // Handled gracefully
-    }
+    } catch (_) {}
 
     if (mounted) {
       await context.read<UserProvider>().completeOnboarding(
-            name: _nameController.text,
+            name: _nameController.text.trim().isEmpty ? 'Maja' : _nameController.text.trim(),
+            activityType: _selectedMode,
             weeklyGoalKm: _weeklyGoalKm,
             habits: _habits,
           );
@@ -134,14 +144,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Top Progress Bar
+            // Top Progress Bar (5 Steps)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               child: Row(
-                children: List.generate(3, (index) {
+                children: List.generate(5, (index) {
                   return Expanded(
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
                       height: 6,
                       decoration: BoxDecoration(
                         color: index <= _currentPage ? AppColors.forestGreen : AppColors.softGreenTint,
@@ -159,9 +169,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 physics: const NeverScrollableScrollPhysics(),
                 onPageChanged: (i) => setState(() => _currentPage = i),
                 children: [
-                  _buildStep1NameAndGoal(lang),
-                  _buildStep2Habits(lang),
-                  _buildStep3Permissions(lang),
+                  _buildStep1Name(lang),
+                  _buildStep2Mode(lang),
+                  _buildStep3Goal(lang),
+                  _buildStep4Habits(lang),
+                  _buildStep5Permissions(lang),
                 ],
               ),
             ),
@@ -171,68 +183,92 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // Step 1: Name and Weekly Goal
-  Widget _buildStep1NameAndGoal(String lang) {
-    return Padding(
+  // Step 1: Info & Name
+  Widget _buildStep1Name(String lang) {
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
             child: Container(
-              width: 100,
-              height: 100,
+              width: 90,
+              height: 90,
               decoration: BoxDecoration(
                 color: AppColors.softGreenTint,
-                borderRadius: BorderRadius.circular(28),
+                borderRadius: BorderRadius.circular(26),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(28),
+                borderRadius: BorderRadius.circular(26),
                 child: Image.asset(
                   'assets/images/capigo_logo.png',
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => const Icon(
                     Icons.pets,
-                    size: 54,
+                    size: 48,
                     color: AppColors.forestGreen,
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          Center(
+          const SizedBox(height: 16),
+          const Center(
             child: Text(
-              LocalizationService.tr('onboarding_welcome', lang),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
+              'CapiGo',
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
                 color: AppColors.textDark,
               ),
             ),
           ),
-          const SizedBox(height: 6),
-          Center(
-            child: Text(
-              LocalizationService.tr('onboarding_sub', lang),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          const SizedBox(height: 12),
+
+          // Required text at top
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.softGreenTint,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.forestGreen.withValues(alpha: 0.15)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.eco_rounded, color: AppColors.forestGreen, size: 24),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Aplikacja, która naturalnie zachęca do regularnej aktywności fizycznej.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.forestGreen,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+
           const SizedBox(height: 32),
 
-          // Name field
-          Text(
-            LocalizationService.tr('enter_name', lang),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textDark),
+          // Name field with automatic first capital letter
+          const Text(
+            'Twoje imię',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.textDark),
           ),
           const SizedBox(height: 8),
           TextField(
             controller: _nameController,
+            textCapitalization: TextCapitalization.words, // Capital first letter
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             decoration: InputDecoration(
               filled: true,
               fillColor: Colors.white,
+              hintText: 'Wpisz swoje imię',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
                 borderSide: const BorderSide(color: AppColors.border),
@@ -241,34 +277,202 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ),
 
+          const SizedBox(height: 48),
+
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: () {
+                if (_nameController.text.trim().isEmpty) {
+                  _nameController.text = 'Maja';
+                }
+                _nextPage();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.forestGreen,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Dalej', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Step 2: Mode selection (Spacer, Bieg, Rower, Nordic walking)
+  Widget _buildStep2Mode(String lang) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Wybierz główną aktywność',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.textDark),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Z jakiej formy ruchu chcesz zacząć korzystać? Tryb możesz zmienić w każdej chwili jednym kliknięciem.',
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.35),
+          ),
+          const SizedBox(height: 24),
+
+          ...ActivityType.userSelectableModes.map((mode) {
+            final isSelected = _selectedMode == mode;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Material(
+                color: isSelected ? AppColors.softGreenTint : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                elevation: isSelected ? 0 : 0.5,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => _onModeSelected(mode),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected ? AppColors.forestGreen : AppColors.border,
+                        width: isSelected ? 2.0 : 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: mode.color.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(mode.icon, color: mode.color, size: 26),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                mode.displayNamePl,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected ? AppColors.forestGreen : AppColors.textDark,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Domyślny cel: ${mode.defaultGoalKm.toInt()} km/tydzień',
+                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                          color: isSelected ? AppColors.forestGreen : AppColors.textMuted,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+
           const SizedBox(height: 28),
 
-          // Goal slider
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                LocalizationService.tr('weekly_goal_km', lang),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.textDark),
+          SizedBox(
+            width: double.infinity,
+            height: 56,
+            child: ElevatedButton(
+              onPressed: _nextPage,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.forestGreen,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
               ),
-              Text(
-                '${_weeklyGoalKm.toInt()} km',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.forestGreen,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Dalej', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Step 3: Goal for chosen mode
+  Widget _buildStep3Goal(String lang) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(_selectedMode.icon, color: _selectedMode.color, size: 28),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Tygodniowy cel: ${_selectedMode.displayNamePl}',
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.textDark),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 6),
+          const Text(
+            'Ile kilometrów tygodniowo chcesz pokonać? Cel możesz w każdej chwili edytować.',
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 40),
+
+          Center(
+            child: Column(
+              children: [
+                Text(
+                  '${_weeklyGoalKm.toInt()} km',
+                  style: const TextStyle(
+                    fontSize: 48,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -1,
+                    color: AppColors.forestGreen,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'tygodniowo',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
           Row(
             children: [
               Expanded(
                 child: Slider(
-                  value: _weeklyGoalKm.clamp(3.0, _maxGoalKm),
-                  min: 3,
+                  value: _weeklyGoalKm.clamp(2.0, _maxGoalKm),
+                  min: 2,
                   max: _maxGoalKm,
-                  divisions: (_maxGoalKm - 3).toInt(),
+                  divisions: (_maxGoalKm - 2).toInt(),
                   activeColor: AppColors.forestGreen,
                   inactiveColor: AppColors.softGreenTint,
                   onChanged: (v) => setState(() => _weeklyGoalKm = v),
@@ -278,7 +482,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               GestureDetector(
                 onTap: () {
                   setState(() {
-                    _maxGoalKm += 10;
+                    _maxGoalKm += 20;
                     _weeklyGoalKm += 5;
                   });
                 },
@@ -286,8 +490,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 42,
-                      height: 42,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         color: AppColors.softGreenTint,
                         borderRadius: BorderRadius.circular(14),
@@ -299,11 +503,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         size: 24,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      lang == 'pl' ? 'Więcej' : 'More',
-                      style: const TextStyle(
-                        fontSize: 11,
+                    const SizedBox(height: 3),
+                    const Text(
+                      'Więcej',
+                      style: TextStyle(
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
                         color: AppColors.forestGreen,
                       ),
@@ -314,7 +518,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ],
           ),
 
-          const Spacer(),
+          const SizedBox(height: 48),
 
           SizedBox(
             width: double.infinity,
@@ -325,9 +529,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 backgroundColor: AppColors.forestGreen,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
               ),
-              child: Text(
-                LocalizationService.tr('next', lang),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Dalej', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                ],
               ),
             ),
           ),
@@ -336,120 +544,114 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  // Step 2: Habits questionnaire
-  Widget _buildStep2Habits(String lang) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            LocalizationService.tr('habits_title', lang),
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textDark),
+  // Step 4: Habits for mode
+  Widget _buildStep4Habits(String lang) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _selectedMode.habitQuestionPl,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.textDark),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Wybierz godziny swoich codziennych nawyków – wyślemy wtedy subtelną zachętę do ruchu.',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            LocalizationService.tr('habits_sub', lang),
-            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 16),
+        ),
 
-          Expanded(
-            child: ListView.separated(
-              itemCount: _habits.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 10),
-              itemBuilder: (ctx, i) {
-                final habit = _habits[i];
-                final hasTime = habit.triggerTime != null;
-
-                return Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              habit.getLocalizedTitle(lang),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: AppColors.textDark,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '"${habit.getLocalizedPrompt(lang)}"',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontStyle: FontStyle.italic,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // Time or N/A Selector
-                      GestureDetector(
-                        onTap: () => _pickTimeForHabit(i),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: hasTime ? AppColors.softGreenTint : AppColors.background,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: hasTime ? AppColors.forestGreen : AppColors.border,
-                            ),
-                          ),
-                          child: Text(
-                            hasTime ? habit.triggerTime!.format(context) : LocalizationService.tr('not_applicable', lang),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: hasTime ? AppColors.forestGreen : AppColors.textMuted,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      if (hasTime)
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 16, color: AppColors.textMuted),
-                          onPressed: () {
-                            setState(() {
-                              _habits[i] = _habits[i].copyWith(clearTime: true);
-                            });
-                          },
-                        ),
-                    ],
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            itemCount: _habits.length + 1,
+            itemBuilder: (context, index) {
+              if (index == _habits.length) {
+                // Button to add custom
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: OutlinedButton.icon(
+                    onPressed: _addCustomHabit,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.forestGreen),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    icon: const Icon(Icons.add_rounded, color: AppColors.forestGreen),
+                    label: const Text(
+                      'Dodaj własne',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.forestGreen),
+                    ),
                   ),
                 );
-              },
-            ),
-          ),
+              }
 
-          // Add Custom Walk button
-          Center(
-            child: TextButton.icon(
-              onPressed: _addCustomHabit,
-              icon: const Icon(Icons.add, color: AppColors.forestGreen),
-              label: Text(
-                LocalizationService.tr('add_custom_walk', lang),
-                style: const TextStyle(color: AppColors.forestGreen, fontWeight: FontWeight.bold),
-              ),
-            ),
+              final habit = _habits[index];
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            habit.getLocalizedTitle(lang),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            habit.triggerTime != null
+                                ? 'Przypomnienie o: ${habit.triggerTime!.format(context)}'
+                                : 'Nie dotyczy',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: habit.triggerTime != null ? AppColors.forestGreen : AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => _pickTimeForHabit(index),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.softGreenTint,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          habit.triggerTime != null ? habit.triggerTime!.format(context) : 'Ustaw godzinę',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.forestGreen,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
-          const SizedBox(height: 10),
+        ),
 
-          SizedBox(
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: SizedBox(
             width: double.infinity,
             height: 56,
             child: ElevatedButton(
@@ -458,69 +660,64 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 backgroundColor: AppColors.forestGreen,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
               ),
-              child: Text(
-                LocalizationService.tr('next', lang),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Dalej', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                ],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  // Step 3: Permissions Screen
-  Widget _buildStep3Permissions(String lang) {
-    return Padding(
+  // Step 5: Permissions & finish
+  Widget _buildStep5Permissions(String lang) {
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          const SizedBox(height: 20),
           Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
+            width: 90,
+            height: 90,
+            decoration: BoxDecoration(
               color: AppColors.softGreenTint,
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.directions_walk_rounded,
-              size: 64,
-              color: AppColors.forestGreen,
-            ),
+            child: const Icon(Icons.security_rounded, color: AppColors.forestGreen, size: 48),
           ),
           const SizedBox(height: 24),
-          Text(
-            LocalizationService.tr('permissions_title', lang),
+          const Text(
+            'Dostęp do czujników i lokalizacji',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: AppColors.textDark,
-            ),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.textDark),
           ),
           const SizedBox(height: 12),
-          Text(
-            LocalizationService.tr('permissions_desc', lang),
+          const Text(
+            'Aby precyzyjnie mierzyć przebyte kilometry, trasę i tempo oraz wysyłać motywujące przypomnienia, CapiGo potrzebuje zgody na dostęp do lokalizacji GPS i powiadomień.',
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondary,
-              height: 1.4,
-            ),
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
           ),
-          const Spacer(),
+          const SizedBox(height: 48),
+
           SizedBox(
             width: double.infinity,
-            height: 58,
+            height: 56,
             child: ElevatedButton(
               onPressed: _requestPermissionsAndFinish,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.forestGreen,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
               ),
-              child: Text(
-                LocalizationService.tr('grant_permissions', lang),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              child: const Text(
+                'Zezwól na dostęp i zaczynajmy',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ),
           ),
