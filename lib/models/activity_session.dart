@@ -45,6 +45,7 @@ class ActivitySession {
   final String congratulationMessage;
   final List<RoutePoint> route;
   final List<SessionDataPoint> timeSeries;
+  final List<String> photoPaths;
 
   ActivitySession({
     required this.id,
@@ -62,6 +63,7 @@ class ActivitySession {
     required this.congratulationMessage,
     required this.route,
     required this.timeSeries,
+    this.photoPaths = const [],
   });
 
   double get distanceKm => distanceMeters / 1000.0;
@@ -92,6 +94,7 @@ class ActivitySession {
       'congratulationMessage': congratulationMessage,
       'route': route.map((p) => p.toJson()).toList(),
       'timeSeries': timeSeries.map((t) => t.toJson()).toList(),
+      'photoPaths': photoPaths,
     };
   }
 
@@ -120,6 +123,7 @@ class ActivitySession {
       timeSeries: (json['timeSeries'] as List<dynamic>? ?? [])
           .map((item) => SessionDataPoint.fromJson(item as Map<String, dynamic>))
           .toList(),
+      photoPaths: (json['photoPaths'] as List<dynamic>? ?? []).map((e) => e.toString()).toList(),
     );
   }
 }
