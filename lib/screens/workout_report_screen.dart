@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/activity_session.dart';
+import '../models/activity_type.dart';
 import '../providers/user_provider.dart';
 import '../services/localization_service.dart';
 import '../services/storage_service.dart';
@@ -484,7 +485,7 @@ class _WorkoutReportScreenState extends State<WorkoutReportScreen> {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: _photos.length + 1,
-                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (context, idx) {
                   if (idx == _photos.length) {
                     // Add more button
@@ -526,7 +527,7 @@ class _WorkoutReportScreenState extends State<WorkoutReportScreen> {
                                 ? Image.network(
                                     photoPath,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
+                                    errorBuilder: (_, _, _) => Container(
                                       color: Colors.grey[200],
                                       child: const Icon(Icons.broken_image, color: Colors.grey),
                                     ),
@@ -534,7 +535,7 @@ class _WorkoutReportScreenState extends State<WorkoutReportScreen> {
                                 : Image.file(
                                     File(photoPath),
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
+                                    errorBuilder: (_, _, _) => Container(
                                       color: Colors.grey[200],
                                       child: const Icon(Icons.broken_image, color: Colors.grey),
                                     ),

@@ -62,7 +62,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final userProvider = context.watch<UserProvider>();
     final lang = userProvider.languageCode;
     final allSessions = userProvider.allSessions;
-    final activeType = userProvider.activeActivityType;
+    final ActivityType activeType = userProvider.activeActivityType;
 
     // Filter sessions for selected mode / all
     final filteredSessions = userProvider.showAllActivities
@@ -521,5 +521,4 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
     );
   }
-}
 }

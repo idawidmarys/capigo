@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../models/activity_type.dart';
 import '../models/habit_item.dart';
 import '../providers/user_provider.dart';
-import '../services/localization_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/time_input_dialog.dart';
 

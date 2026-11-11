@@ -58,6 +58,20 @@ enum ActivityType {
     }
   }
 
+  String get actionVerbPl {
+    switch (this) {
+      case ActivityType.walk:
+        return 'spacer';
+      case ActivityType.run:
+      case ActivityType.jog:
+        return 'bieg';
+      case ActivityType.bike:
+        return 'rower';
+      case ActivityType.nordicWalk:
+        return 'nordic walking';
+    }
+  }
+
   String get habitQuestionPl {
     switch (this) {
       case ActivityType.walk:

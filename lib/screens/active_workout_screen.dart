@@ -320,10 +320,12 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
 
                               if (source != null) {
                                 try {
+                                  final trackingProvider = context.read<TrackingProvider>();
+                                  final messenger = ScaffoldMessenger.of(context);
                                   final XFile? file = await picker.pickImage(source: source, imageQuality: 85);
                                   if (file != null && mounted) {
-                                    context.read<TrackingProvider>().addPhoto(file.path);
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                    trackingProvider.addPhoto(file.path);
+                                    messenger.showSnackBar(
                                       const SnackBar(
                                         content: Text('📸 Dodano zdjęcie z trasy!'),
                                         duration: Duration(seconds: 2),
