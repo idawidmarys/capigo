@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../providers/tracking_provider.dart';
@@ -283,9 +284,105 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                               ),
                             ),
                           ),
+
+                          const SizedBox(height: 8),
+
+                          // Camera button to snap photo from route
+                          GestureDetector(
+                            onTap: () async {
+                              final picker = ImagePicker();
+                              final source = await showModalBottomSheet<ImageSource>(
+                                context: context,
+                                shape: const RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                                ),
+                                builder: (ctx) => SafeArea(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        ListTile(
+                                          leading: const Icon(Icons.camera_alt_rounded, color: AppColors.forestGreen),
+                                          title: const Text('Zrób zdjęcie na trasie', style: TextStyle(fontWeight: FontWeight.bold)),
+                                          onTap: () => Navigator.pop(ctx, ImageSource.camera),
+                                        ),
+                                        ListTile(
+                                          leading: const Icon(Icons.photo_library_rounded, color: AppColors.forestGreen),
+                                          title: const Text('Wybierz z galerii', style: TextStyle(fontWeight: FontWeight.bold)),
+                                          onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+
+                              if (source != null) {
+                                try {
+                                  final XFile? file = await picker.pickImage(source: source, imageQuality: 85);
+                                  if (file != null && mounted) {
+                                    context.read<TrackingProvider>().addPhoto(file.path);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('📸 Dodano zdjęcie z trasy!'),
+                                        duration: Duration(seconds: 2),
+                                        backgroundColor: AppColors.forestGreen,
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  debugPrint('Error taking photo: $e');
+                                }
+                              }
+                            },
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black12,
+                                    blurRadius: 6,
+                                    offset: Offset(0, 2),
+                                  )
+                                ],
+                              ),
+                              child: const Center(
+                                child: Icon(Icons.camera_alt_rounded, color: AppColors.forestGreen, size: 20),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
+
+                    // Photo count badge at bottom-left of map
+                    if (tracking.currentPhotos.isNotEmpty)
+                      Positioned(
+                        bottom: 12,
+                        left: 12,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.65),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.photo_camera_rounded, color: Colors.white, size: 14),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${tracking.currentPhotos.length}',
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
 
                     // Loading overlay if waiting for initial GPS lock
                     if (currentPoint == null)
