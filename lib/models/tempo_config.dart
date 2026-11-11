@@ -49,17 +49,24 @@ class TempoTier {
         'met': met,
       };
 
-  factory TempoTier.fromJson(Map<String, dynamic> json) => TempoTier(
-        level: json['level'] as int,
-        key: json['key'] as String,
-        namePl: json['namePl'] as String,
-        nameEn: json['nameEn'] as String,
-        nameDe: json['nameDe'] as String,
-        nameEs: json['nameEs'] as String,
-        maxSpeedKmh: (json['maxSpeedKmh'] as num).toDouble(),
-        maxCadence: json['maxCadence'] as int,
-        met: (json['met'] as num).toDouble(),
-      );
+  factory TempoTier.fromJson(Map<String, dynamic> json) {
+    final level = json['level'] as int;
+    String namePl = json['namePl'] as String? ?? '';
+    if (level == 5 && (namePl == 'Solidna redukcja kalorii' || namePl.isEmpty)) {
+      namePl = 'Bardzo szybkie';
+    }
+    return TempoTier(
+      level: level,
+      key: json['key'] as String? ?? 'tier_$level',
+      namePl: namePl,
+      nameEn: json['nameEn'] as String? ?? (level == 5 ? 'Very fast' : ''),
+      nameDe: json['nameDe'] as String? ?? (level == 5 ? 'Sehr schnell' : ''),
+      nameEs: json['nameEs'] as String? ?? (level == 5 ? 'Muy rápido' : ''),
+      maxSpeedKmh: (json['maxSpeedKmh'] as num).toDouble(),
+      maxCadence: json['maxCadence'] as int? ?? 999,
+      met: (json['met'] as num?)?.toDouble() ?? 3.5,
+    );
+  }
 }
 
 class TempoConfig {
@@ -132,11 +139,11 @@ class TempoConfig {
         ),
         const TempoTier(
           level: 5,
-          key: 'calorie_burn',
+          key: 'very_fast',
           namePl: 'Bardzo szybkie',
-          nameEn: 'Power burn / Jog',
-          nameDe: 'Intensive Verbrennung',
-          nameEs: 'Quema intensiva',
+          nameEn: 'Very fast',
+          nameDe: 'Sehr schnell',
+          nameEs: 'Muy rápido',
           maxSpeedKmh: 99.0,
           maxCadence: 999,
           met: 7.5,
