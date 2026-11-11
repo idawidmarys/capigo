@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'activity_type.dart';
 
 class HabitItem {
   final String id;
@@ -114,6 +115,67 @@ class HabitItem {
       isCustom: json['isCustom'] as bool? ?? false,
       isEnabled: json['isEnabled'] as bool? ?? true,
     );
+  }
+
+  static List<HabitItem> defaultHabitsForMode(ActivityType type) {
+    if (type == ActivityType.walk) {
+      return defaultHabits();
+    }
+
+    String actionName;
+    switch (type) {
+      case ActivityType.run:
+      case ActivityType.jog:
+        actionName = 'bieg';
+        break;
+      case ActivityType.bike:
+        actionName = 'rower';
+        break;
+      case ActivityType.nordicWalk:
+        actionName = 'nordic walking';
+        break;
+      default:
+        actionName = 'aktywność';
+    }
+
+    return [
+      HabitItem(
+        id: 'tv',
+        titlePl: 'Zamiast TV',
+        titleEn: 'Instead of TV',
+        titleDe: 'Statt Fernsehen',
+        titleEs: 'En vez de TV',
+        promptPl: 'Może $actionName na świeżym powietrzu zamiast leżenia przed TV?',
+        promptEn: 'How about outdoor exercise instead of lying in front of the TV?',
+        promptDe: 'Wie wäre es mit Bewegung an der frischen Luft statt TV?',
+        promptEs: '¿Un poco de ejercicio al aire libre en lugar de tumbarte ante la tele?',
+        triggerTime: const TimeOfDay(hour: 19, minute: 0),
+      ),
+      HabitItem(
+        id: 'netflix',
+        titlePl: 'Zamiast Netflixa',
+        titleEn: 'Instead of Netflix',
+        titleDe: 'Statt Netflix',
+        titleEs: 'En vez de Netflix',
+        promptPl: 'Może $actionName i spalenie kalorii zamiast Netflixa?',
+        promptEn: 'How about a healthy workout instead of Netflix and snacks?',
+        promptDe: 'Wie wäre es mit einem Workout statt Netflix?',
+        promptEs: '¿Qué tal quemar calorías en vez de maratón de Netflix?',
+        triggerTime: const TimeOfDay(hour: 20, minute: 0),
+      ),
+      HabitItem(
+        id: 'boredom',
+        titlePl: 'Zamiast zamulania w domu',
+        titleEn: 'Instead of sluggish time at home',
+        titleDe: 'Statt Langeweile zu Hause',
+        titleEs: 'En vez de aburrirte en casa',
+        promptPl: 'Zamulasz? Załóż buty, ruszaj na $actionName i naładuj baterie!',
+        promptEn: 'Feeling sluggish? Put on your gear, go workout and recharge!',
+        promptDe: 'Träge? Zieh deine Schuhe an und mach etwas Bewegung!',
+        promptEs: '¿Apático? ¡Ponte las zapatillas, muévete y recarga energía!',
+        triggerTime: const TimeOfDay(hour: 16, minute: 30),
+      ),
+    ];
   }
 
   static List<HabitItem> defaultHabits() {
