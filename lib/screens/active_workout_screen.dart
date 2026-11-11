@@ -549,7 +549,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                                 if (shouldStop == true && context.mounted) {
                                   final congratulation = userProvider.getPersonalizedCongratulations(lang);
                                   final session = await tracking.stopTracking(
-                                    tempoConfig: userProvider.profile.tempoConfig,
+                                    tempoConfig: userProvider.profile.getTempoConfigForMode(userProvider.activeActivityType),
                                     congratulationMessage: congratulation,
                                     langCode: lang,
                                   );

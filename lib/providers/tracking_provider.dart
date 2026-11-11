@@ -413,7 +413,11 @@ class TrackingProvider extends ChangeNotifier {
 
     final double avgCadence = currentCadence;
     final double avgSpeed = averageSpeedKmh;
-    final tempoTier = tempoConfig.evaluate(avgSpeed, avgCadence);
+    final tempoTier = tempoConfig.evaluate(
+      avgSpeed,
+      avgCadence,
+      isBike: _currentType == ActivityType.bike,
+    );
 
     final double hours = finalElapsed / 3600.0;
     const double weightKg = 70.0;

@@ -162,7 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               // Tempo Button
               GestureDetector(
-                onTap: () => TempoSettingsDialog.show(context),
+                onTap: () => TempoSettingsDialog.show(context, mode: currentType),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
@@ -172,17 +172,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: AppColors.border,
                     ),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.speed, size: 14, color: AppColors.forestGreen),
-                      SizedBox(width: 4),
+                      Icon(Icons.speed, size: 14, color: currentType.color),
+                      const SizedBox(width: 4),
                       Text(
                         'Tempo',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.forestGreen,
+                          color: currentType.color,
                         ),
                       ),
                     ],

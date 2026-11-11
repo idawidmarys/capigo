@@ -185,11 +185,27 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Update Tempo Config
-  Future<void> updateTempoConfig(TempoConfig config) async {
-    _profile = _profile.copyWith(tempoConfig: config);
+  // Get Tempo Config for mode
+  TempoConfig getTempoConfigForMode(ActivityType mode) {
+    return _profile.getTempoConfigForMode(mode);
+  }
+
+  // Update Tempo Config for specific mode
+  Future<void> updateTempoConfigForMode(ActivityType mode, TempoConfig config) async {
+    final updatedConfigs = Map<String, TempoConfig>.from(_profile.modeTempoConfigs);
+    updatedConfigs[mode.name] = config;
+
+    _profile = _profile.copyWith(
+      modeTempoConfigs: updatedConfigs,
+      tempoConfig: mode == _profile.activeActivityType ? config : _profile.tempoConfig,
+    );
     await StorageService.saveProfile(_profile);
     notifyListeners();
+  }
+
+  // Update Tempo Config (for current active mode)
+  Future<void> updateTempoConfig(TempoConfig config) async {
+    await updateTempoConfigForMode(_profile.activeActivityType, config);
   }
 
   // Update Habits

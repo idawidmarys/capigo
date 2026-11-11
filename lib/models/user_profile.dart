@@ -14,6 +14,7 @@ class UserProfile {
   final TempoConfig tempoConfig;
   final ActivityType activeActivityType;
   final Map<String, double> modeWeeklyGoals;
+  final Map<String, TempoConfig> modeTempoConfigs;
 
   UserProfile({
     required this.name,
@@ -27,7 +28,18 @@ class UserProfile {
     required this.tempoConfig,
     this.activeActivityType = ActivityType.walk,
     this.modeWeeklyGoals = const {},
+    this.modeTempoConfigs = const {},
   });
+
+  TempoConfig getTempoConfigForMode(ActivityType type) {
+    if (modeTempoConfigs.containsKey(type.name)) {
+      return modeTempoConfigs[type.name]!;
+    }
+    if (type == activeActivityType && type == ActivityType.walk) {
+      return tempoConfig;
+    }
+    return TempoConfig.defaultPresetForMode(type);
+  }
 
   double getGoalForMode(ActivityType type) {
     if (modeWeeklyGoals.containsKey(type.name)) {
@@ -55,6 +67,7 @@ class UserProfile {
     TempoConfig? tempoConfig,
     ActivityType? activeActivityType,
     Map<String, double>? modeWeeklyGoals,
+    Map<String, TempoConfig>? modeTempoConfigs,
   }) {
     return UserProfile(
       name: name ?? this.name,
@@ -68,6 +81,7 @@ class UserProfile {
       tempoConfig: tempoConfig ?? this.tempoConfig,
       activeActivityType: activeActivityType ?? this.activeActivityType,
       modeWeeklyGoals: modeWeeklyGoals ?? this.modeWeeklyGoals,
+      modeTempoConfigs: modeTempoConfigs ?? this.modeTempoConfigs,
     );
   }
 
@@ -83,6 +97,7 @@ class UserProfile {
         'tempoConfig': tempoConfig.toJson(),
         'activeActivityType': activeActivityType.name,
         'modeWeeklyGoals': modeWeeklyGoals,
+        'modeTempoConfigs': modeTempoConfigs.map((k, v) => MapEntry(k, v.toJson())),
       };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -109,6 +124,25 @@ class UserProfile {
       goals[resolvedMode.name] = baseWeeklyGoal;
     }
 
+    Map<String, TempoConfig> tempoConfigs = {};
+    if (json['modeTempoConfigs'] is Map) {
+      (json['modeTempoConfigs'] as Map).forEach((k, v) {
+        if (v is Map<String, dynamic>) {
+          tempoConfigs[k.toString()] = TempoConfig.fromJson(v);
+        } else if (v is Map) {
+          tempoConfigs[k.toString()] = TempoConfig.fromJson(Map<String, dynamic>.from(v));
+        }
+      });
+    }
+
+    final baseTempoConfig = json['tempoConfig'] != null
+        ? TempoConfig.fromJson(json['tempoConfig'] as Map<String, dynamic>)
+        : TempoConfig.defaultPreset();
+
+    if (!tempoConfigs.containsKey('walk')) {
+      tempoConfigs['walk'] = baseTempoConfig;
+    }
+
     return UserProfile(
       name: json['name'] as String? ?? 'Spacerowicz',
       weeklyGoalKm: baseWeeklyGoal,
@@ -120,11 +154,10 @@ class UserProfile {
       habits: (json['habits'] as List<dynamic>? ?? [])
           .map((h) => HabitItem.fromJson(h as Map<String, dynamic>))
           .toList(),
-      tempoConfig: json['tempoConfig'] != null
-          ? TempoConfig.fromJson(json['tempoConfig'] as Map<String, dynamic>)
-          : TempoConfig.defaultPreset(),
+      tempoConfig: baseTempoConfig,
       activeActivityType: resolvedMode,
       modeWeeklyGoals: goals,
+      modeTempoConfigs: tempoConfigs,
     );
   }
 
@@ -141,6 +174,12 @@ class UserProfile {
       tempoConfig: TempoConfig.defaultPreset(),
       activeActivityType: ActivityType.walk,
       modeWeeklyGoals: {'walk': 12.0},
+      modeTempoConfigs: {
+        'walk': TempoConfig.defaultWalkPreset(),
+        'run': TempoConfig.defaultRunPreset(),
+        'bike': TempoConfig.defaultBikePreset(),
+        'nordicWalk': TempoConfig.defaultWalkPreset(),
+      },
     );
   }
 }

@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/activity_type.dart';
 import '../models/tempo_config.dart';
 import '../providers/user_provider.dart';
 import '../services/localization_service.dart';
 import '../theme/app_colors.dart';
 
 class TempoSettingsDialog extends StatefulWidget {
-  const TempoSettingsDialog({super.key});
+  final ActivityType? mode;
 
-  static Future<void> show(BuildContext context) {
+  const TempoSettingsDialog({super.key, this.mode});
+
+  static Future<void> show(BuildContext context, {ActivityType? mode}) {
     return showDialog(
       context: context,
-      builder: (_) => const TempoSettingsDialog(),
+      builder: (_) => TempoSettingsDialog(mode: mode),
     );
   }
 
@@ -20,6 +23,7 @@ class TempoSettingsDialog extends StatefulWidget {
 }
 
 class _TempoSettingsDialogState extends State<TempoSettingsDialog> {
+  late ActivityType _mode;
   late List<TextEditingController> _speedControllers;
   late List<TextEditingController> _cadenceControllers;
   late List<TempoTier> _tiers;
@@ -28,7 +32,9 @@ class _TempoSettingsDialogState extends State<TempoSettingsDialog> {
   @override
   void initState() {
     super.initState();
-    final config = context.read<UserProvider>().profile.tempoConfig;
+    final userProvider = context.read<UserProvider>();
+    _mode = widget.mode ?? userProvider.activeActivityType;
+    final config = userProvider.getTempoConfigForMode(_mode);
     _tiers = List.from(config.tiers);
     _speedControllers = _tiers.map((t) => TextEditingController(text: t.maxSpeedKmh.toString())).toList();
     _cadenceControllers = _tiers.map((t) => TextEditingController(text: t.maxCadence.toString())).toList();
@@ -47,16 +53,31 @@ class _TempoSettingsDialogState extends State<TempoSettingsDialog> {
 
   void _save() {
     final lang = context.read<UserProvider>().languageCode;
+    final bool isBike = _mode == ActivityType.bike;
     final updatedTiers = <TempoTier>[];
+
     for (int i = 0; i < _tiers.length; i++) {
       final double? speed = double.tryParse(_speedControllers[i].text.trim().replaceAll(',', '.'));
-      final int? cadence = int.tryParse(_cadenceControllers[i].text.trim());
+      int cadence = 999;
 
-      if (speed == null || speed <= 0 || cadence == null || cadence <= 0) {
+      if (!isBike) {
+        final parsedCadence = int.tryParse(_cadenceControllers[i].text.trim());
+        if (parsedCadence == null || parsedCadence <= 0) {
+          setState(() {
+            _errorMessage = lang == 'pl'
+                ? 'Wprowadź prawidłową kadencję dla każdego poziomu.'
+                : 'Please enter valid cadence for each level.';
+          });
+          return;
+        }
+        cadence = parsedCadence;
+      }
+
+      if (speed == null || speed <= 0) {
         setState(() {
           _errorMessage = lang == 'pl'
-              ? 'Wprowadź prawidłowe liczby dla każdego poziomu.'
-              : 'Please enter valid numbers for each level.';
+              ? 'Wprowadź prawidłową prędkość dla każdego poziomu.'
+              : 'Please enter valid speed for each level.';
         });
         return;
       }
@@ -74,14 +95,21 @@ class _TempoSettingsDialogState extends State<TempoSettingsDialog> {
       ));
     }
 
-    // Walidacja gradacji: każdy kolejny poziom musi mieć większą prędkość i kadencję
+    // Walidacja gradacji: każdy kolejny poziom musi mieć większą prędkość (i kadencję dla nie-roweru)
     for (int i = 1; i < updatedTiers.length; i++) {
-      if (updatedTiers[i].maxSpeedKmh <= updatedTiers[i - 1].maxSpeedKmh ||
-          updatedTiers[i].maxCadence <= updatedTiers[i - 1].maxCadence) {
+      if (updatedTiers[i].maxSpeedKmh <= updatedTiers[i - 1].maxSpeedKmh) {
         setState(() {
           _errorMessage = lang == 'pl'
-              ? 'Tempo i kadencja powinny stopniowo rosnąć zgodnie ze skalą (poziom $i musi być mniejszy niż poziom ${i + 1}).'
-              : 'Pace and cadence should gradually increase according to the scale (level $i must be lower than level ${i + 1}).';
+              ? 'Prędkość powinna stopniowo rosnąć (poziom $i musi być mniejszy niż poziom ${i + 1}).'
+              : 'Speed should gradually increase (level $i must be lower than level ${i + 1}).';
+        });
+        return;
+      }
+      if (!isBike && updatedTiers[i].maxCadence <= updatedTiers[i - 1].maxCadence) {
+        setState(() {
+          _errorMessage = lang == 'pl'
+              ? 'Kadencja powinna stopniowo rosnąć (poziom $i musi być mniejsza niż poziom ${i + 1}).'
+              : 'Cadence should gradually increase (level $i must be lower than level ${i + 1}).';
         });
         return;
       }
@@ -91,18 +119,20 @@ class _TempoSettingsDialogState extends State<TempoSettingsDialog> {
       _errorMessage = null;
     });
 
-    context.read<UserProvider>().updateTempoConfig(TempoConfig(tiers: updatedTiers));
+    context.read<UserProvider>().updateTempoConfigForMode(_mode, TempoConfig(tiers: updatedTiers));
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(lang == 'pl' ? 'Ustawienia tempa zostały zapisane!' : 'Pace settings saved!'),
+        content: Text(lang == 'pl'
+            ? 'Ustawienia tempa dla trybu ${_mode.displayNamePl} zostały zapisane!'
+            : 'Pace settings for ${_mode.name} saved!'),
         backgroundColor: AppColors.forestGreen,
       ),
     );
   }
 
   void _resetToDefaults() {
-    final defaultCfg = TempoConfig.defaultPreset();
+    final defaultCfg = TempoConfig.defaultPresetForMode(_mode);
     for (int i = 0; i < defaultCfg.tiers.length && i < _speedControllers.length; i++) {
       _speedControllers[i].text = defaultCfg.tiers[i].maxSpeedKmh.toString();
       _cadenceControllers[i].text = defaultCfg.tiers[i].maxCadence.toString();
@@ -116,6 +146,7 @@ class _TempoSettingsDialogState extends State<TempoSettingsDialog> {
   Widget build(BuildContext context) {
     final userProvider = context.watch<UserProvider>();
     final lang = userProvider.languageCode;
+    final bool isBike = _mode == ActivityType.bike;
 
     return Dialog(
       backgroundColor: Colors.white,
@@ -130,27 +161,51 @@ class _TempoSettingsDialogState extends State<TempoSettingsDialog> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.softGreenTint,
+                    color: _mode.color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.speed, color: AppColors.forestGreen, size: 24),
+                  child: Icon(_mode.icon, color: _mode.color, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        LocalizationService.tr('tempo_settings', lang),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            LocalizationService.tr('tempo_settings', lang),
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _mode.color.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _mode.displayNamePl,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: _mode.color,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        LocalizationService.tr('tempo_desc', lang),
+                        isBike
+                            ? (lang == 'pl'
+                                ? 'Progi prędkości dla 5 poziomów tempa na rowerze:'
+                                : 'Speed thresholds for 5 cycling pace levels:')
+                            : LocalizationService.tr('tempo_desc', lang),
                         style: const TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
@@ -226,8 +281,8 @@ class _TempoSettingsDialogState extends State<TempoSettingsDialog> {
                             Container(
                               width: 24,
                               height: 24,
-                              decoration: const BoxDecoration(
-                                color: AppColors.forestGreen,
+                              decoration: BoxDecoration(
+                                color: _mode.color,
                                 shape: BoxShape.circle,
                               ),
                               child: Center(
@@ -305,7 +360,7 @@ class _TempoSettingsDialogState extends State<TempoSettingsDialog> {
                                         ),
                                         focusedBorder: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(10),
-                                          borderSide: const BorderSide(color: AppColors.forestGreen, width: 1.5),
+                                          borderSide: BorderSide(color: _mode.color, width: 1.5),
                                         ),
                                         suffixText: 'km/h',
                                         suffixStyle: const TextStyle(fontSize: 11, color: AppColors.textMuted),
@@ -315,64 +370,66 @@ class _TempoSettingsDialogState extends State<TempoSettingsDialog> {
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    height: 18,
-                                    child: Text(
-                                      lang == 'pl' ? 'Maks. krok/min' : 'Max steps/min',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  SizedBox(
-                                    height: 42,
-                                    child: TextField(
-                                      controller: _cadenceControllers[i],
-                                      keyboardType: TextInputType.number,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textDark,
-                                      ),
-                                      decoration: InputDecoration(
-                                        isDense: true,
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                          borderSide: const BorderSide(
-                                            color: AppColors.border,
-                                          ),
+                            if (!isBike) ...[
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(
+                                      height: 18,
+                                      child: Text(
+                                        lang == 'pl' ? 'Maks. krok/min' : 'Max steps/min',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textSecondary,
                                         ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                          borderSide: const BorderSide(
-                                            color: AppColors.border,
-                                          ),
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                          borderSide: const BorderSide(color: AppColors.forestGreen, width: 1.5),
-                                        ),
-                                        suffixText: 'spm',
-                                        suffixStyle: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 4),
+                                    SizedBox(
+                                      height: 42,
+                                      child: TextField(
+                                        controller: _cadenceControllers[i],
+                                        keyboardType: TextInputType.number,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textDark,
+                                        ),
+                                        decoration: InputDecoration(
+                                          isDense: true,
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(
+                                              color: AppColors.border,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(
+                                              color: AppColors.border,
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: BorderSide(color: _mode.color, width: 1.5),
+                                          ),
+                                          suffixText: 'spm',
+                                          suffixStyle: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ],
@@ -397,7 +454,7 @@ class _TempoSettingsDialogState extends State<TempoSettingsDialog> {
                 ElevatedButton(
                   onPressed: _save,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.forestGreen,
+                    backgroundColor: _mode.color,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),

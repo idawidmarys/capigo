@@ -1,3 +1,5 @@
+import 'activity_type.dart';
+
 class TempoTier {
   final int level; // 1 to 5
   final String key;
@@ -65,7 +67,23 @@ class TempoConfig {
 
   TempoConfig({required this.tiers});
 
-  static TempoConfig defaultPreset() {
+  static TempoConfig defaultPreset() => defaultWalkPreset();
+
+  static TempoConfig defaultPresetForMode(ActivityType type) {
+    switch (type) {
+      case ActivityType.run:
+      case ActivityType.jog:
+        return defaultRunPreset();
+      case ActivityType.bike:
+        return defaultBikePreset();
+      case ActivityType.walk:
+      case ActivityType.nordicWalk:
+        return defaultWalkPreset();
+    }
+  }
+
+  // Domyślne wartości dla Spaceru i Nordic Walking
+  static TempoConfig defaultWalkPreset() {
     return TempoConfig(
       tiers: [
         const TempoTier(
@@ -115,7 +133,7 @@ class TempoConfig {
         const TempoTier(
           level: 5,
           key: 'calorie_burn',
-          namePl: 'Solidna redukcja kalorii',
+          namePl: 'Bardzo szybkie',
           nameEn: 'Power burn / Jog',
           nameDe: 'Intensive Verbrennung',
           nameEs: 'Quema intensiva',
@@ -127,15 +145,146 @@ class TempoConfig {
     );
   }
 
+  // Domyślne wartości dla Biegu
+  static TempoConfig defaultRunPreset() {
+    return TempoConfig(
+      tiers: [
+        const TempoTier(
+          level: 1,
+          key: 'very_slow',
+          namePl: 'Bardzo spokojne',
+          nameEn: 'Very slow',
+          nameDe: 'Sehr langsam',
+          nameEs: 'Muy tranquilo',
+          maxSpeedKmh: 7.0,
+          maxCadence: 155,
+          met: 6.5,
+        ),
+        const TempoTier(
+          level: 2,
+          key: 'slow',
+          namePl: 'Spokojne',
+          nameEn: 'Slow & relaxed',
+          nameDe: 'Gemütlich',
+          nameEs: 'Tranquilo',
+          maxSpeedKmh: 9.0,
+          maxCadence: 165,
+          met: 8.5,
+        ),
+        const TempoTier(
+          level: 3,
+          key: 'neutral',
+          namePl: 'Neutralne',
+          nameEn: 'Moderate / Neutral',
+          nameDe: 'Mäßig / Neutral',
+          nameEs: 'Moderado',
+          maxSpeedKmh: 11.0,
+          maxCadence: 175,
+          met: 10.0,
+        ),
+        const TempoTier(
+          level: 4,
+          key: 'fast',
+          namePl: 'Szybkie',
+          nameEn: 'Brisk / Fast',
+          nameDe: 'Zügig / Schnell',
+          nameEs: 'Rápido',
+          maxSpeedKmh: 14.0,
+          maxCadence: 185,
+          met: 12.0,
+        ),
+        const TempoTier(
+          level: 5,
+          key: 'very_fast',
+          namePl: 'Bardzo szybkie',
+          nameEn: 'Very fast',
+          nameDe: 'Sehr schnell',
+          nameEs: 'Muy rápido',
+          maxSpeedKmh: 99.0,
+          maxCadence: 999,
+          met: 14.5,
+        ),
+      ],
+    );
+  }
+
+  // Domyślne wartości dla Roweru (bez kadencji)
+  static TempoConfig defaultBikePreset() {
+    return TempoConfig(
+      tiers: [
+        const TempoTier(
+          level: 1,
+          key: 'very_slow',
+          namePl: 'Bardzo spokojne',
+          nameEn: 'Very slow',
+          nameDe: 'Sehr langsam',
+          nameEs: 'Muy tranquilo',
+          maxSpeedKmh: 10.0,
+          maxCadence: 999,
+          met: 4.0,
+        ),
+        const TempoTier(
+          level: 2,
+          key: 'slow',
+          namePl: 'Spokojne',
+          nameEn: 'Slow & relaxed',
+          nameDe: 'Gemütlich',
+          nameEs: 'Tranquilo',
+          maxSpeedKmh: 15.0,
+          maxCadence: 999,
+          met: 6.0,
+        ),
+        const TempoTier(
+          level: 3,
+          key: 'neutral',
+          namePl: 'Neutralne',
+          nameEn: 'Moderate / Neutral',
+          nameDe: 'Mäßig / Neutral',
+          nameEs: 'Moderado',
+          maxSpeedKmh: 20.0,
+          maxCadence: 999,
+          met: 8.0,
+        ),
+        const TempoTier(
+          level: 4,
+          key: 'fast',
+          namePl: 'Szybkie',
+          nameEn: 'Brisk / Fast',
+          nameDe: 'Zügig / Schnell',
+          nameEs: 'Rápido',
+          maxSpeedKmh: 25.0,
+          maxCadence: 999,
+          met: 10.0,
+        ),
+        const TempoTier(
+          level: 5,
+          key: 'very_fast',
+          namePl: 'Bardzo szybkie',
+          nameEn: 'Very fast',
+          nameDe: 'Sehr schnell',
+          nameEs: 'Muy rápido',
+          maxSpeedKmh: 99.0,
+          maxCadence: 999,
+          met: 12.5,
+        ),
+      ],
+    );
+  }
+
   // Algorithm: evaluates speed category and cadence category,
   // takes the LOWER of the two categories to prevent overestimation.
-  TempoTier evaluate(double avgSpeedKmh, double avgCadence) {
+  // For bike or zero-cadence workouts, evaluates by speed only.
+  TempoTier evaluate(double avgSpeedKmh, double avgCadence, {bool isBike = false}) {
     int speedLevel = 5;
     for (int i = 0; i < tiers.length; i++) {
       if (avgSpeedKmh <= tiers[i].maxSpeedKmh) {
         speedLevel = tiers[i].level;
         break;
       }
+    }
+
+    if (isBike || avgCadence <= 0) {
+      return tiers.firstWhere((t) => t.level == speedLevel, orElse: () => tiers[0]);
     }
 
     int cadenceLevel = 5;
