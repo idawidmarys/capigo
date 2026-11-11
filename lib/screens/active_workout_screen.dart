@@ -24,6 +24,58 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   double _lastAnimatedHeading = 0.0;
   LatLng? _lastCenteredPoint;
 
+  Future<void> _takePhoto() async {
+    final picker = ImagePicker();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt_rounded, color: AppColors.forestGreen),
+                title: const Text('Zrób zdjęcie na trasie', style: TextStyle(fontWeight: FontWeight.bold)),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_rounded, color: AppColors.forestGreen),
+                title: const Text('Wybierz z galerii', style: TextStyle(fontWeight: FontWeight.bold)),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (source != null) {
+      try {
+        final trackingProvider = context.read<TrackingProvider>();
+        final messenger = ScaffoldMessenger.of(context);
+        final XFile? file = await picker.pickImage(source: source, imageQuality: 85);
+        if (file != null && mounted) {
+          trackingProvider.addPhoto(file.path);
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('📸 Dodano zdjęcie z trasy!'),
+              duration: Duration(seconds: 2),
+              backgroundColor: AppColors.forestGreen,
+            ),
+          );
+        }
+      } catch (e) {
+        debugPrint('Error taking photo: $e');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tracking = context.watch<TrackingProvider>();
@@ -289,55 +341,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
 
                           // Camera button to snap photo from route
                           GestureDetector(
-                            onTap: () async {
-                              final picker = ImagePicker();
-                              final source = await showModalBottomSheet<ImageSource>(
-                                context: context,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                                ),
-                                builder: (ctx) => SafeArea(
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        ListTile(
-                                          leading: const Icon(Icons.camera_alt_rounded, color: AppColors.forestGreen),
-                                          title: const Text('Zrób zdjęcie na trasie', style: TextStyle(fontWeight: FontWeight.bold)),
-                                          onTap: () => Navigator.pop(ctx, ImageSource.camera),
-                                        ),
-                                        ListTile(
-                                          leading: const Icon(Icons.photo_library_rounded, color: AppColors.forestGreen),
-                                          title: const Text('Wybierz z galerii', style: TextStyle(fontWeight: FontWeight.bold)),
-                                          onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-
-                              if (source != null) {
-                                try {
-                                  final trackingProvider = context.read<TrackingProvider>();
-                                  final messenger = ScaffoldMessenger.of(context);
-                                  final XFile? file = await picker.pickImage(source: source, imageQuality: 85);
-                                  if (file != null && mounted) {
-                                    trackingProvider.addPhoto(file.path);
-                                    messenger.showSnackBar(
-                                      const SnackBar(
-                                        content: Text('📸 Dodano zdjęcie z trasy!'),
-                                        duration: Duration(seconds: 2),
-                                        backgroundColor: AppColors.forestGreen,
-                                      ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  debugPrint('Error taking photo: $e');
-                                }
-                              }
-                            },
+                            onTap: _takePhoto,
                             child: Container(
                               width: 40,
                               height: 40,
