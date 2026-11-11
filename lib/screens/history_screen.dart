@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/activity_session.dart';
+import '../models/activity_type.dart';
 import '../providers/user_provider.dart';
 import '../services/localization_service.dart';
 import '../theme/app_colors.dart';
@@ -61,9 +62,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final userProvider = context.watch<UserProvider>();
     final lang = userProvider.languageCode;
     final allSessions = userProvider.allSessions;
+    final activeType = userProvider.activeActivityType;
+
+    // Filter sessions for selected mode / all
+    final filteredSessions = userProvider.showAllActivities
+        ? allSessions
+        : allSessions.where((s) => s.type == activeType).toList();
 
     // Filter sessions for selected month
-    final monthSessions = allSessions.where((s) {
+    final monthSessions = filteredSessions.where((s) {
       return s.startTime.year == _selectedMonth.year && s.startTime.month == _selectedMonth.month;
     }).toList();
 
@@ -92,6 +99,74 @@ class _HistoryScreenState extends State<HistoryScreen> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         children: [
+          // Active Mode indicator & All activities filter
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: activeType.color.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(activeType.icon, size: 18, color: activeType.color),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Tryb: ${activeType.displayNamePl}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: activeType.color,
+                  ),
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: () => userProvider.toggleAllActivitiesFilter(),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: userProvider.showAllActivities
+                          ? AppColors.forestGreen
+                          : AppColors.softGreenTint,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          userProvider.showAllActivities ? Icons.filter_alt_off : Icons.filter_alt,
+                          size: 13,
+                          color: userProvider.showAllActivities ? Colors.white : AppColors.forestGreen,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          userProvider.showAllActivities
+                              ? LocalizationService.tr('all_activities', lang)
+                              : activeType.displayNamePl,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: userProvider.showAllActivities ? Colors.white : AppColors.forestGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
           // Month Selector Header
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -189,7 +264,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Wybierz inny miesiąc lub rozpocznij spacer.',
+                    lang == 'pl'
+                        ? 'Wybierz inny miesiąc lub rozpocznij aktywność.'
+                        : 'Choose another month or start an activity.',
                     style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ],
@@ -236,12 +313,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: AppColors.softGreenTint,
+                              color: session.type.color.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: const Icon(
-                              Icons.directions_walk_rounded,
-                              color: AppColors.forestGreen,
+                            child: Icon(
+                              session.type.icon,
+                              color: session.type.color,
                               size: 20,
                             ),
                           ),
@@ -250,17 +327,46 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  dateStr,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textDark,
-                                  ),
+                                Row(
+                                  children: [
+                                    Text(
+                                      dateStr,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textDark,
+                                      ),
+                                    ),
+                                    if (session.photoPaths.isNotEmpty) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.shade100,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Text('📸', style: TextStyle(fontSize: 10)),
+                                            const SizedBox(width: 2),
+                                            Text(
+                                              '${session.photoPaths.length}',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.amber.shade900,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
-                                  '$min min • ${session.tempoName}',
+                                  '${session.type.displayNamePl} • $min min • ${session.tempoName}',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: AppColors.textSecondary,
@@ -271,10 +377,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 const SizedBox(height: 3),
                                 Text(
                                   '${session.calories} kcal',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.forestGreen,
+                                    color: session.type.color,
                                   ),
                                 ),
                               ],
@@ -295,7 +401,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             visualDensity: VisualDensity.compact,
                             padding: const EdgeInsets.all(4),
                             constraints: const BoxConstraints(),
-                            tooltip: lang == 'pl' ? 'Usuń spacer' : 'Delete walk',
+                            tooltip: lang == 'pl' ? 'Usuń aktywność' : 'Delete activity',
                             onPressed: () => _confirmDeleteSession(context, session, lang),
                           ),
                           const SizedBox(width: 4),
@@ -381,15 +487,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _confirmDeleteSession(BuildContext context, ActivitySession session, String lang) {
     final dateStr = DateFormat('dd.MM.yyyy HH:mm').format(session.startTime);
+    final actName = session.type.displayNamePl.toLowerCase();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(lang == 'pl' ? 'Usunąć spacer?' : 'Delete walk?'),
+        title: Text(lang == 'pl' ? 'Usunąć $actName?' : 'Delete ${session.type.name}?'),
         content: Text(
           lang == 'pl'
-              ? 'Czy na pewno chcesz usunąć spacer z $dateStr (${session.distanceKm.toStringAsFixed(1)} km)?'
-              : 'Are you sure you want to delete the walk from $dateStr (${session.distanceKm.toStringAsFixed(1)} km)?',
+              ? 'Czy na pewno chcesz usunąć $actName z $dateStr (${session.distanceKm.toStringAsFixed(1)} km)?'
+              : 'Are you sure you want to delete ${session.type.name} from $dateStr (${session.distanceKm.toStringAsFixed(1)} km)?',
         ),
         actions: [
           TextButton(
@@ -402,7 +509,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(lang == 'pl' ? 'Spacer został usunięty.' : 'Walk deleted.'),
+                  content: Text(lang == 'pl' ? 'Aktywność została usunięta.' : 'Activity deleted.'),
                   backgroundColor: Colors.redAccent,
                 ),
               );
@@ -414,4 +521,5 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
     );
   }
+}
 }
