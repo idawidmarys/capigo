@@ -152,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.more_horiz_rounded, size: 18, color: AppColors.textSecondary),
+                      const Icon(Icons.more_vert_rounded, size: 18, color: AppColors.textSecondary),
                     ],
                   ),
                 ),

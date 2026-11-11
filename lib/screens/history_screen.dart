@@ -109,21 +109,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: activeType.color.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(activeType.icon, size: 18, color: activeType.color),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Tryb: ${activeType.displayNamePl}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: activeType.color,
+                GestureDetector(
+                  onTap: () => _showModeSelector(context, userProvider),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: activeType.color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(activeType.icon, size: 18, color: activeType.color),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Tryb: ${activeType.displayNamePl}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: activeType.color,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(Icons.more_vert_rounded, size: 18, color: activeType.color),
+                    ],
                   ),
                 ),
                 const Spacer(),
@@ -518,6 +528,202 @@ class _HistoryScreenState extends State<HistoryScreen> {
             child: Text(lang == 'pl' ? 'Usuń' : 'Delete'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showModeSelector(BuildContext context, UserProvider userProvider) {
+    final currentType = userProvider.activeActivityType;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.tune_rounded, color: AppColors.forestGreen),
+                    SizedBox(width: 8),
+                    Text(
+                      'Wybierz tryb aktywności',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Zmień dyscyplinę w dowolnym momencie. Każdy tryb ma swój własny cel tygodniowy.',
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                ...ActivityType.userSelectableModes.map((mode) {
+                  final isCurrent = mode == currentType;
+                  final goal = userProvider.profile.getGoalForMode(mode);
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: isCurrent ? AppColors.softGreenTint : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isCurrent ? AppColors.forestGreen : AppColors.border,
+                        width: isCurrent ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: mode.color.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(mode.icon, color: mode.color, size: 22),
+                      ),
+                      title: Text(
+                        mode.displayNamePl,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isCurrent ? AppColors.forestGreen : AppColors.textDark,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Tygodniowy cel: ${goal.toInt()} km',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      trailing: isCurrent
+                          ? const Icon(Icons.check_circle_rounded, color: AppColors.forestGreen)
+                          : const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        if (isCurrent) return;
+
+                        if (!userProvider.hasGoalForMode(mode)) {
+                          await _showFirstTimeGoalDialog(context, userProvider, mode);
+                        } else {
+                          await userProvider.setActiveActivityType(mode);
+                        }
+                      },
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showFirstTimeGoalDialog(BuildContext context, UserProvider userProvider, ActivityType mode) async {
+    double goal = mode.defaultGoalKm;
+    double maxGoal = mode == ActivityType.bike ? 150.0 : 60.0;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Row(
+            children: [
+              Icon(mode.icon, color: mode.color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Tygodniowy cel: ${mode.displayNamePl}',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'To Twoje pierwsze wejście w ten tryb. Ustaw ile kilometrów tygodniowo chcesz pokonać:',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                '${goal.toInt()} km',
+                style: const TextStyle(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.forestGreen,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Slider(
+                      value: goal.clamp(1.0, maxGoal),
+                      min: 1,
+                      max: maxGoal,
+                      divisions: (maxGoal - 1).toInt(),
+                      activeColor: AppColors.forestGreen,
+                      onChanged: (val) => setDlgState(() => goal = val),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      setDlgState(() {
+                        maxGoal += 20;
+                        goal += 10;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.softGreenTint,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        '+ Więcej',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.forestGreen,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Anuluj'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await userProvider.setGoalForMode(mode, goal);
+                await userProvider.setActiveActivityType(mode);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.forestGreen,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              child: const Text('Zatwierdź cel'),
+            ),
+          ],
+        ),
       ),
     );
   }
