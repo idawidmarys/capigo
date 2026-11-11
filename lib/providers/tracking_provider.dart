@@ -31,22 +31,25 @@ class TrackingProvider extends ChangeNotifier {
 
   final List<RoutePoint> _routePoints = [];
   final List<SessionDataPoint> _timeSeries = [];
+  final List<String> _currentPhotos = [];
 
   Timer? _timer;
   StreamSubscription<Position>? _positionSubscription;
   StreamSubscription<StepCount>? _pedometerSubscription;
 
   TrackingProvider() {
-    // Listen for notification action buttons (Pauza / Wznów / Zakończ)
-    NotificationService.initialize(onNotificationAction: (action) {
-      if (action == 'pause_action') {
-        pauseTracking();
-      } else if (action == 'resume_action') {
-        resumeTracking();
-      } else if (action == 'stop_action') {
-        pauseTracking();
-      }
-    });
+    // Listen for notification action clicks from lock screen
+    NotificationService.initialize(
+      onNotificationAction: (action) {
+        if (action == 'pause_action') {
+          pauseTracking();
+        } else if (action == 'resume_action') {
+          resumeTracking();
+        } else if (action == 'stop_action') {
+          pauseTracking();
+        }
+      },
+    );
   }
 
   // Getters
@@ -55,6 +58,19 @@ class TrackingProvider extends ChangeNotifier {
   bool get isPaused => _isPaused;
   double get currentHeading => _currentHeading;
   Position? get lastPosition => _lastPosition;
+  List<String> get currentPhotos => List.unmodifiable(_currentPhotos);
+
+  void addPhoto(String path) {
+    _currentPhotos.add(path);
+    notifyListeners();
+  }
+
+  void removePhoto(int index) {
+    if (index >= 0 && index < _currentPhotos.length) {
+      _currentPhotos.removeAt(index);
+      notifyListeners();
+    }
+  }
 
   // Real-clock wall time calculation: never freezes even when screen is locked
   int get elapsedSeconds {
@@ -131,9 +147,10 @@ class TrackingProvider extends ChangeNotifier {
       _initialPedometerStepCount = -1;
       _routePoints.clear();
       _timeSeries.clear();
+      _currentPhotos.clear();
       _startTime = DateTime.now();
 
-      // Fetch initial GPS position immediately so map is never on Warsaw
+      // Fetch initial GPS position immediately
       try {
         final initialPos = await LocationService.getCurrentPosition();
         if (initialPos != null) {
@@ -179,8 +196,8 @@ class TrackingProvider extends ChangeNotifier {
       if (!_isPaused) {
         _elapsedSeconds = elapsedSeconds;
 
-        // If pedometer sensor is unavailable or not ticking, estimate steps from GPS distance
-        if (_initialPedometerStepCount == -1) {
+        // If pedometer sensor is unavailable or not ticking, estimate steps from GPS distance (only for walking/running)
+        if (_currentType != ActivityType.bike && _initialPedometerStepCount == -1) {
           final estimatedSteps = (_distanceMeters * 1.32).round();
           if (estimatedSteps > _steps) {
             _steps = estimatedSteps;
@@ -213,7 +230,7 @@ class TrackingProvider extends ChangeNotifier {
   }
 
   void _startPedometer() {
-    if (kIsWeb) return;
+    if (kIsWeb || _currentType == ActivityType.bike) return;
     try {
       _pedometerSubscription?.cancel();
       _pedometerSubscription = Pedometer.stepCountStream.listen(
@@ -228,81 +245,100 @@ class TrackingProvider extends ChangeNotifier {
             }
           }
         },
-        onError: (_) {
-          // Sensor not available on this platform/emulator, uses GPS-stride fallback
-        },
+        onError: (_) {},
       );
-    } catch (_) {
-      // Ignored
-    }
+    } catch (_) {}
   }
 
   void _startLocationUpdates() {
     try {
       _positionSubscription?.cancel();
-      _positionSubscription = LocationService.getPositionStream(distanceFilter: 2).listen((Position position) {
-      if (_isPaused) return;
+      _positionSubscription = LocationService.getPositionStream(distanceFilter: 3).listen(
+        (Position position) {
+          if (_isPaused) return;
 
-      _lastPosition = position;
+          // 1. Accuracy filter: discard indoor / supermarket GPS noise (> 18 meters)
+          if (position.accuracy > 18.0) {
+            return;
+          }
 
-      // Update heading / bearing
-      if (position.heading >= 0 && !position.heading.isNaN && position.heading != 0) {
-        _currentHeading = position.heading;
-      } else if (_routePoints.length >= 2) {
-        final prev = _routePoints.last;
-        final dist = LocationService.calculateDistanceMeters(
-          prev.latitude,
-          prev.longitude,
-          position.latitude,
-          position.longitude,
-        );
-        if (dist > 1.2) {
-          _currentHeading = _calculateBearing(
-            prev.latitude,
-            prev.longitude,
-            position.latitude,
-            position.longitude,
+          _lastPosition = position;
+
+          // Update heading / bearing
+          if (position.heading >= 0 && !position.heading.isNaN && position.heading != 0) {
+            _currentHeading = position.heading;
+          } else if (_routePoints.length >= 2) {
+            final prev = _routePoints.last;
+            final dist = LocationService.calculateDistanceMeters(
+              prev.latitude,
+              prev.longitude,
+              position.latitude,
+              position.longitude,
+            );
+            if (dist > 1.5) {
+              _currentHeading = _calculateBearing(
+                prev.latitude,
+                prev.longitude,
+                position.latitude,
+                position.longitude,
+              );
+            }
+          }
+
+          final newPoint = RoutePoint(
+            latitude: position.latitude,
+            longitude: position.longitude,
+            timestamp: DateTime.now(),
+            speed: position.speed,
+            altitude: position.altitude,
           );
-        }
-      }
 
-      final newPoint = RoutePoint(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        timestamp: DateTime.now(),
-        speed: position.speed,
-        altitude: position.altitude,
+          if (_routePoints.isNotEmpty) {
+            final lastPoint = _routePoints.last;
+            final dist = LocationService.calculateDistanceMeters(
+              lastPoint.latitude,
+              lastPoint.longitude,
+              newPoint.latitude,
+              newPoint.longitude,
+            );
+
+            // 2. Stationary / indoor drift filter:
+            // When user is stationary (speed < 0.25 m/s), ignore jitter under 3.5m.
+            final isStationary = position.speed < 0.25;
+            final minThreshold = isStationary ? 3.5 : 2.0;
+
+            // 3. Max speed sanity check
+            final secondsSinceLast = DateTime.now().difference(lastPoint.timestamp).inSeconds;
+            final speedCalc = secondsSinceLast > 0 ? (dist / secondsSinceLast) * 3.6 : 0.0;
+            final maxRealisticSpeed = _currentType == ActivityType.bike ? 60.0 : 30.0;
+
+            if (dist >= minThreshold && dist < 120 && speedCalc <= maxRealisticSpeed) {
+              _distanceMeters += dist;
+              _routePoints.add(newPoint);
+            }
+          } else {
+            _routePoints.add(newPoint);
+          }
+
+          _currentSpeedKmh = (position.speed * 3.6).clamp(0.0, 99.0);
+
+          // Update lock screen notification
+          NotificationService.updateWorkoutNotification(
+            duration: formattedDuration,
+            distanceKm: distanceKm,
+            steps: _steps,
+            isPaused: false,
+          );
+
+          notifyListeners();
+        },
+        onError: (e) {
+          debugPrint('Location stream error: $e');
+        },
       );
-
-      if (_routePoints.isNotEmpty) {
-        final lastPoint = _routePoints.last;
-        final dist = LocationService.calculateDistanceMeters(
-          lastPoint.latitude,
-          lastPoint.longitude,
-          newPoint.latitude,
-          newPoint.longitude,
-        );
-
-        // Filter unrealistic GPS anomalies
-        if (dist > 0.5 && dist < 80) {
-          _distanceMeters += dist;
-        }
-      }
-
-      _routePoints.add(newPoint);
-      _currentSpeedKmh = (position.speed * 3.6).clamp(0.0, 99.0);
-
-      // Keep lock screen notification fresh with real GPS meters
-      NotificationService.updateWorkoutNotification(
-        duration: formattedDuration,
-        distanceKm: distanceKm,
-        steps: _steps,
-        isPaused: false,
-      );
-
-      notifyListeners();
-    }, onError: (e) { debugPrint('Location stream error: $e'); });
-    } catch (e) { debugPrint('startLocationUpdates error: $e'); }
+    } catch (e) {
+      debugPrint('startLocationUpdates error: $e');
+    }
   }
 
   double _calculateBearing(double lat1, double lon1, double lat2, double lon2) {
@@ -315,12 +351,12 @@ class TrackingProvider extends ChangeNotifier {
     return (theta * 180.0 / pi + 360.0) % 360.0;
   }
 
+  // Pause
   void pauseTracking() {
-    if (_isPaused) return;
+    if (!_isTracking || _isPaused) return;
     _isPaused = true;
     _pauseStartTime = DateTime.now();
     _elapsedSeconds = elapsedSeconds;
-    _currentSpeedKmh = 0.0;
 
     NotificationService.updateWorkoutNotification(
       duration: formattedDuration,
@@ -332,13 +368,14 @@ class TrackingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Resume
   void resumeTracking() {
-    if (!_isPaused) return;
-    _isPaused = false;
+    if (!_isTracking || !_isPaused) return;
     if (_pauseStartTime != null) {
       _accumulatedPausedSeconds += DateTime.now().difference(_pauseStartTime!).inSeconds;
       _pauseStartTime = null;
     }
+    _isPaused = false;
 
     NotificationService.updateWorkoutNotification(
       duration: formattedDuration,
@@ -350,22 +387,19 @@ class TrackingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Stop workout & generate ActivitySession
   Future<ActivitySession?> stopTracking({
     required TempoConfig tempoConfig,
     required String congratulationMessage,
     required String langCode,
   }) async {
-    _timer?.cancel();
-    _positionSubscription?.cancel();
-    _pedometerSubscription?.cancel();
-    NotificationService.cancelWorkoutNotification();
+    if (!_isTracking) return null;
+
+    if (_isPaused && _pauseStartTime != null) {
+      _accumulatedPausedSeconds += DateTime.now().difference(_pauseStartTime!).inSeconds;
+    }
 
     final finalElapsed = elapsedSeconds;
-    if (_startTime == null || finalElapsed < 5) {
-      _reset();
-      notifyListeners();
-      return null;
-    }
 
     // Add final sample point if needed
     if (_timeSeries.isEmpty || _timeSeries.last.second != finalElapsed) {
@@ -383,12 +417,13 @@ class TrackingProvider extends ChangeNotifier {
 
     final double hours = finalElapsed / 3600.0;
     const double weightKg = 70.0;
-    final int calculatedCalories = (tempoTier.met * weightKg * hours).round();
+    final double baseMet = _currentType.metValue;
+    final int calculatedCalories = ((baseMet + (tempoTier.level - 2) * 0.5) * weightKg * hours).round();
 
     final session = ActivitySession(
       id: const Uuid().v4(),
       type: _currentType,
-      startTime: _startTime!,
+      startTime: _startTime ?? DateTime.now(),
       endTime: DateTime.now(),
       durationSeconds: finalElapsed,
       distanceMeters: _distanceMeters,
@@ -401,6 +436,7 @@ class TrackingProvider extends ChangeNotifier {
       congratulationMessage: congratulationMessage,
       route: List.from(_routePoints),
       timeSeries: List.from(_timeSeries),
+      photoPaths: List.from(_currentPhotos),
     );
 
     await StorageService.saveSession(session);
@@ -424,6 +460,7 @@ class TrackingProvider extends ChangeNotifier {
     _lastPosition = null;
     _routePoints.clear();
     _timeSeries.clear();
+    _currentPhotos.clear();
     NotificationService.cancelWorkoutNotification();
   }
 
