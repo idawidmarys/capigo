@@ -123,7 +123,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Text(
-          LocalizationService.tr('app_title', lang),
+          LocalizationService.tr('tracking', lang),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
