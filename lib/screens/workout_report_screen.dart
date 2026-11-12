@@ -1,14 +1,10 @@
-import 'dart:io' show File;
 import 'package:fl_chart/fl_chart.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../models/activity_session.dart';
 import '../models/activity_type.dart';
 import '../providers/user_provider.dart';
 import '../services/localization_service.dart';
-import '../services/storage_service.dart';
 import '../theme/app_colors.dart';
 
 class WorkoutReportScreen extends StatefulWidget {
@@ -21,118 +17,6 @@ class WorkoutReportScreen extends StatefulWidget {
 }
 
 class _WorkoutReportScreenState extends State<WorkoutReportScreen> {
-  late List<String> _photos;
-
-  @override
-  void initState() {
-    super.initState();
-    _photos = List.from(widget.session.photoPaths);
-  }
-
-  Future<void> _pickAndAddPhoto() async {
-    final picker = ImagePicker();
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.camera_alt_rounded, color: AppColors.forestGreen),
-                title: const Text('Zrób zdjęcie aparatem', style: TextStyle(fontWeight: FontWeight.bold)),
-                onTap: () => Navigator.pop(ctx, ImageSource.camera),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library_rounded, color: AppColors.forestGreen),
-                title: const Text('Wybierz z galerii', style: TextStyle(fontWeight: FontWeight.bold)),
-                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    if (source != null) {
-      try {
-        final XFile? picked = await picker.pickImage(source: source, imageQuality: 85);
-        if (picked != null) {
-          setState(() {
-            _photos.add(picked.path);
-          });
-          // Update stored session
-          final updatedSession = ActivitySession(
-            id: widget.session.id,
-            type: widget.session.type,
-            startTime: widget.session.startTime,
-            endTime: widget.session.endTime,
-            durationSeconds: widget.session.durationSeconds,
-            distanceMeters: widget.session.distanceMeters,
-            steps: widget.session.steps,
-            averageCadence: widget.session.averageCadence,
-            avgSpeedKmh: widget.session.avgSpeedKmh,
-            tempoLevel: widget.session.tempoLevel,
-            tempoName: widget.session.tempoName,
-            calories: widget.session.calories,
-            congratulationMessage: widget.session.congratulationMessage,
-            route: widget.session.route,
-            timeSeries: widget.session.timeSeries,
-            photoPaths: List.from(_photos),
-          );
-          await StorageService.saveSession(updatedSession);
-          if (mounted) {
-            context.read<UserProvider>().reloadSessions();
-          }
-        }
-      } catch (e) {
-        debugPrint('Error picking photo: $e');
-      }
-    }
-  }
-
-  void _openFullScreenPhoto(String path) {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(12),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: InteractiveViewer(
-                child: kIsWeb
-                    ? Image.network(path, fit: BoxFit.contain)
-                    : Image.file(File(path), fit: BoxFit.contain),
-              ),
-            ),
-            Positioned(
-              top: 10,
-              right: 10,
-              child: GestureDetector(
-                onTap: () => Navigator.pop(ctx),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: Colors.black54,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 22),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<UserProvider>().languageCode;
@@ -151,12 +35,7 @@ class _WorkoutReportScreenState extends State<WorkoutReportScreen> {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         children: [
-          // 1. PHOTOS FROM ROUTE (At the very top as requested!)
-          _buildPhotosSection(lang),
-
-          const SizedBox(height: 18),
-
-          // 2. Capybara Celebration Banner
+          // 1. Capybara Celebration Banner
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
@@ -398,168 +277,6 @@ class _WorkoutReportScreenState extends State<WorkoutReportScreen> {
           ),
 
           const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  // Top Photos Section
-  Widget _buildPhotosSection(String lang) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          )
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.photo_camera_rounded, color: AppColors.forestGreen, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Zdjęcia z trasy (${_photos.length})',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
-                  ),
-                ],
-              ),
-              TextButton.icon(
-                onPressed: _pickAndAddPhoto,
-                icon: const Icon(Icons.add_a_photo_rounded, size: 16, color: AppColors.forestGreen),
-                label: const Text(
-                  'Dodaj',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.forestGreen),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          if (_photos.isEmpty)
-            GestureDetector(
-              onTap: _pickAndAddPhoto,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                decoration: BoxDecoration(
-                  color: AppColors.softGreenTint.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.softGreenBorder, style: BorderStyle.solid),
-                ),
-                child: const Column(
-                  children: [
-                    Icon(Icons.add_photo_alternate_outlined, size: 36, color: AppColors.forestGreen),
-                    SizedBox(height: 6),
-                    Text(
-                      'Brak zdjęć z tej trasy',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Dotknij tutaj, aby dodać pamiątkowe zdjęcie',
-                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              height: 120,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _photos.length + 1,
-                separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, idx) {
-                  if (idx == _photos.length) {
-                    // Add more button
-                    return GestureDetector(
-                      onTap: _pickAndAddPhoto,
-                      child: Container(
-                        width: 90,
-                        decoration: BoxDecoration(
-                          color: AppColors.softGreenTint,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.softGreenBorder),
-                        ),
-                        child: const Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.add_rounded, size: 28, color: AppColors.forestGreen),
-                            SizedBox(height: 4),
-                            Text(
-                              'Dodaj',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.forestGreen),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  final photoPath = _photos[idx];
-                  return GestureDetector(
-                    onTap: () => _openFullScreenPhoto(photoPath),
-                    child: Stack(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: SizedBox(
-                            width: 120,
-                            height: 120,
-                            child: kIsWeb
-                                ? Image.network(
-                                    photoPath,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) => Container(
-                                      color: Colors.grey[200],
-                                      child: const Icon(Icons.broken_image, color: Colors.grey),
-                                    ),
-                                  )
-                                : Image.file(
-                                    File(photoPath),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) => Container(
-                                      color: Colors.grey[200],
-                                      child: const Icon(Icons.broken_image, color: Colors.grey),
-                                    ),
-                                  ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 6,
-                          right: 6,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Colors.black45,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.fullscreen_rounded, color: Colors.white, size: 14),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
         ],
       ),
     );
