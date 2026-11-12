@@ -177,10 +177,14 @@ class SettingsScreen extends StatelessWidget {
                   title: Text(
                     '${LocalizationService.tr('tempo_settings', lang)}: ${activeType.displayNamePl}',
                     style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textDark),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
                     LocalizationService.tr('tempo_desc', lang),
                     style: const TextStyle(color: AppColors.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textSecondary),
                   onTap: () => TempoSettingsDialog.show(context, mode: activeType),

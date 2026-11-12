@@ -121,44 +121,50 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 10),
 
               // Mode pill with 3 dots to edit/switch mode anytime (Requirement 5 & 6)
-              GestureDetector(
-                onTap: () => _showModeSelector(context, userProvider),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(currentType.icon, size: 16, color: currentType.color),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Tryb: ${currentType.displayNamePl}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.2,
-                          color: AppColors.textDark,
+              Flexible(
+                child: GestureDetector(
+                  onTap: () => _showModeSelector(context, userProvider),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.more_vert_rounded, size: 18, color: AppColors.textSecondary),
-                    ],
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(currentType.icon, size: 16, color: currentType.color),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            'Tryb: ${currentType.displayNamePl}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
+                              color: AppColors.textDark,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.more_vert_rounded, size: 18, color: AppColors.textSecondary),
+                      ],
+                    ),
                   ),
                 ),
               ),
 
-              const Spacer(),
+              const SizedBox(width: 8),
 
               // Tempo Button
               GestureDetector(
@@ -408,6 +414,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontWeight: FontWeight.bold,
                       color: AppColors.textDark,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (progress >= 1.0)

@@ -109,34 +109,40 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
             child: Row(
               children: [
-                GestureDetector(
-                  onTap: () => _showModeSelector(context, userProvider),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: activeType.color.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
+                Flexible(
+                  child: GestureDetector(
+                    onTap: () => _showModeSelector(context, userProvider),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: activeType.color.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(activeType.icon, size: 18, color: activeType.color),
                         ),
-                        child: Icon(activeType.icon, size: 18, color: activeType.color),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Tryb: ${activeType.displayNamePl}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: activeType.color,
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'Tryb: ${activeType.displayNamePl}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: activeType.color,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 2),
-                      Icon(Icons.more_vert_rounded, size: 18, color: activeType.color),
-                    ],
+                        const SizedBox(width: 2),
+                        Icon(Icons.more_vert_rounded, size: 18, color: activeType.color),
+                      ],
+                    ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 InkWell(
                   onTap: () => userProvider.toggleAllActivitiesFilter(),
                   borderRadius: BorderRadius.circular(12),
