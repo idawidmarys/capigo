@@ -76,14 +76,14 @@ enum ActivityType {
     if (lang == 'pl') {
       switch (this) {
         case ActivityType.walk:
-          return '$weeks. tydzień regularnego spacerowania';
+          return '$weeks. Tydzień Regularnego Spacerowania';
         case ActivityType.run:
         case ActivityType.jog:
-          return '$weeks. tydzień regularnego biegania';
+          return '$weeks. Tydzień Regularnego Biegania';
         case ActivityType.bike:
-          return '$weeks. tydzień regularnej jazdy na rowerze';
+          return '$weeks. Tydzień Regularnej Jazdy Na Rowerze';
         case ActivityType.nordicWalk:
-          return '$weeks. tydzień regularnego nordic walkingu';
+          return '$weeks. Tydzień Regularnego Nordic Walkingu';
       }
     } else if (lang == 'de') {
       switch (this) {
