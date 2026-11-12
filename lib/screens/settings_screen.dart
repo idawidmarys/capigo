@@ -56,12 +56,18 @@ class SettingsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        lang == 'pl' ? 'Aktualny tryb aktywności' : 'Active activity mode',
+                        lang == 'pl'
+                            ? 'Aktualny tryb aktywności'
+                            : (lang == 'de'
+                                ? 'Aktueller Aktivitätsmodus'
+                                : (lang == 'es'
+                                    ? 'Modo de actividad actual'
+                                    : 'Active activity mode')),
                         style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        activeType.displayNamePl,
+                        activeType.getLocalizedName(lang),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -79,7 +85,7 @@ class SettingsScreen extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   child: Text(
-                    lang == 'pl' ? 'Zmień' : 'Change',
+                    lang == 'pl' ? 'Zmień' : (lang == 'de' ? 'Ändern' : (lang == 'es' ? 'Cambiar' : 'Change')),
                     style: TextStyle(color: activeType.color, fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                 ),
@@ -163,7 +169,7 @@ class SettingsScreen extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textDark),
                   ),
                   subtitle: Text(
-                    '${userProvider.currentModeWeeklyGoal.toInt()} km (${activeType.displayNamePl})',
+                    '${userProvider.currentModeWeeklyGoal.toInt()} km (${activeType.getLocalizedName(lang)})',
                     style: const TextStyle(color: AppColors.textSecondary),
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textSecondary),
@@ -175,7 +181,7 @@ class SettingsScreen extends StatelessWidget {
                 ListTile(
                   leading: Icon(Icons.speed, color: activeType.color),
                   title: Text(
-                    '${LocalizationService.tr('tempo_settings', lang)}: ${activeType.displayNamePl}',
+                    '${LocalizationService.tr('tempo_settings', lang)}: ${activeType.getLocalizedName(lang)}',
                     style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textDark),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -395,6 +401,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   void _showModePicker(BuildContext context, UserProvider userProvider) {
+    final lang = userProvider.languageCode;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -405,11 +412,11 @@ class SettingsScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Text(
-                'Wybierz aktywność',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark),
+                LocalizationService.tr('select_mode', lang),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark),
               ),
             ),
             const SizedBox(height: 12),
@@ -426,13 +433,13 @@ class SettingsScreen extends StatelessWidget {
                   child: Icon(type.icon, color: type.color, size: 24),
                 ),
                 title: Text(
-                  type.displayNamePl,
+                  type.getLocalizedName(lang),
                   style: TextStyle(
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                     color: isSelected ? type.color : AppColors.textDark,
                   ),
                 ),
-                subtitle: Text('Cel: ${currentGoal.toInt()} km / tydzień'),
+                subtitle: Text('${LocalizationService.tr('weekly_goal_header', lang)}: ${currentGoal.toInt()} km'),
                 trailing: isSelected ? Icon(Icons.check_circle_rounded, color: type.color) : null,
                 onTap: () {
                   Navigator.pop(ctx);
@@ -449,13 +456,14 @@ class SettingsScreen extends StatelessWidget {
   void _showEditGoalDialog(BuildContext context, double currentGoal, ActivityType activeType) {
     double tempGoal = currentGoal;
     double maxGoal = currentGoal > 50 ? (currentGoal + 10) : 50.0;
+    final lang = context.read<UserProvider>().languageCode;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Edytuj cel: ${activeType.displayNamePl}'),
+          title: Text('${LocalizationService.tr('edit', lang)}: ${activeType.getLocalizedName(lang)}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -497,7 +505,7 @@ class SettingsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Więcej',
+                          lang == 'pl' ? 'Więcej' : 'More',
                           style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: activeType.color),
                         ),
                       ],
@@ -510,7 +518,7 @@ class SettingsScreen extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Anuluj'),
+              child: Text(LocalizationService.tr('cancel', lang)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -518,7 +526,7 @@ class SettingsScreen extends StatelessWidget {
                 Navigator.pop(ctx);
               },
               style: ElevatedButton.styleFrom(backgroundColor: activeType.color),
-              child: const Text('Zapisz'),
+              child: Text(LocalizationService.tr('save', lang)),
             ),
           ],
         ),

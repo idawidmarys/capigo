@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/activity_type.dart';
 import '../models/habit_item.dart';
 import '../providers/user_provider.dart';
+import '../services/localization_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/time_input_dialog.dart';
 
@@ -67,12 +68,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _addCustomHabit() {
+    final lang = context.read<UserProvider>().languageCode;
     final customController = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Własny powód (${_selectedMode.displayNamePl})'),
+        title: Text(lang == 'pl' ? 'Własny powód (${_selectedMode.displayNamePl})' : 'Custom habit (${_selectedMode.getLocalizedName(lang)})'),
         content: TextField(
           controller: customController,
           textCapitalization: TextCapitalization.sentences,
@@ -362,7 +364,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                mode.displayNamePl,
+                                mode.getLocalizedName(lang),
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -428,7 +430,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Tygodniowy cel: ${_selectedMode.displayNamePl}',
+                  '${LocalizationService.tr('weekly_goal_header', lang)}: ${_selectedMode.getLocalizedName(lang)}',
                   style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.textDark),
                 ),
               ),

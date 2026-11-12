@@ -126,7 +126,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
-                            'Tryb: ${activeType.displayNamePl}',
+                            '${LocalizationService.tr('mode', lang)}: ${activeType.getLocalizedName(lang)}',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -166,7 +166,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         Text(
                           userProvider.showAllActivities
                               ? LocalizationService.tr('all_activities', lang)
-                              : activeType.displayNamePl,
+                              : activeType.getLocalizedName(lang),
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -382,7 +382,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
-                                  '${session.type.displayNamePl} • $min min • ${session.tempoName}',
+                                  '${session.type.getLocalizedName(lang)} • $min min • ${session.tempoName}',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: AppColors.textSecondary,
@@ -503,16 +503,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _confirmDeleteSession(BuildContext context, ActivitySession session, String lang) {
     final dateStr = DateFormat('dd.MM.yyyy HH:mm').format(session.startTime);
-    final actName = session.type.displayNamePl.toLowerCase();
+    final actName = session.type.getLocalizedName(lang).toLowerCase();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(lang == 'pl' ? 'Usunąć $actName?' : 'Delete ${session.type.name}?'),
+        title: Text(lang == 'pl' ? 'Usunąć $actName?' : 'Delete $actName?'),
         content: Text(
           lang == 'pl'
               ? 'Czy na pewno chcesz usunąć $actName z $dateStr (${session.distanceKm.toStringAsFixed(1)} km)?'
-              : 'Are you sure you want to delete ${session.type.name} from $dateStr (${session.distanceKm.toStringAsFixed(1)} km)?',
+              : 'Are you sure you want to delete $actName from $dateStr (${session.distanceKm.toStringAsFixed(1)} km)?',
         ),
         actions: [
           TextButton(
@@ -540,6 +540,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   void _showModeSelector(BuildContext context, UserProvider userProvider) {
     final currentType = userProvider.activeActivityType;
+    final lang = userProvider.languageCode;
 
     showModalBottomSheet(
       context: context,
@@ -555,13 +556,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.tune_rounded, color: AppColors.forestGreen),
-                    SizedBox(width: 8),
+                    const Icon(Icons.tune_rounded, color: AppColors.forestGreen),
+                    const SizedBox(width: 8),
                     Text(
-                      'Wybierz tryb aktywności',
-                      style: TextStyle(
+                      LocalizationService.tr('select_mode', lang),
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textDark,
@@ -570,9 +571,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Zmień dyscyplinę w dowolnym momencie. Każdy tryb ma swój własny cel tygodniowy.',
-                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                Text(
+                  lang == 'pl'
+                      ? 'Zmień dyscyplinę w dowolnym momencie. Każdy tryb ma swój własny cel tygodniowy.'
+                      : (lang == 'de'
+                          ? 'Wechsle die Disziplin jederzeit. Jeder Modus hat sein eigenes Wochenziel.'
+                          : (lang == 'es'
+                              ? 'Cambia de disciplina en cualquier momento. Cada modo tiene su propio objetivo semanal.'
+                              : 'Switch disciplines anytime. Each mode has its own weekly goal.')),
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
                 ...ActivityType.userSelectableModes.map((mode) {
@@ -599,14 +606,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         child: Icon(mode.icon, color: mode.color, size: 22),
                       ),
                       title: Text(
-                        mode.displayNamePl,
+                        mode.getLocalizedName(lang),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: isCurrent ? AppColors.forestGreen : AppColors.textDark,
                         ),
                       ),
                       subtitle: Text(
-                        'Tygodniowy cel: ${goal.toInt()} km',
+                        '${LocalizationService.tr('weekly_goal_header', lang)}: ${goal.toInt()} km',
                         style: const TextStyle(fontSize: 12),
                       ),
                       trailing: isCurrent
@@ -634,6 +641,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _showFirstTimeGoalDialog(BuildContext context, UserProvider userProvider, ActivityType mode) async {
+    final lang = userProvider.languageCode;
     double goal = mode.defaultGoalKm;
     double maxGoal = mode == ActivityType.bike ? 150.0 : 60.0;
 
@@ -648,7 +656,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Tygodniowy cel: ${mode.displayNamePl}',
+                  '${LocalizationService.tr('weekly_goal_header', lang)}: ${mode.getLocalizedName(lang)}',
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -657,9 +665,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'To Twoje pierwsze wejście w ten tryb. Ustaw ile kilometrów tygodniowo chcesz pokonać:',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              Text(
+                lang == 'pl'
+                    ? 'To Twoje pierwsze wejście w ten tryb. Ustaw ile kilometrów tygodniowo chcesz pokonać:'
+                    : (lang == 'de'
+                        ? 'Das ist dein erster Eintrag in diesen Modus. Lege fest, wie viele Kilometer du pro Woche zurücklegen möchtest:'
+                        : (lang == 'es'
+                            ? 'Esta es tu primera vez en este modo. Define cuántos kilómetros por semana deseas recorrer:'
+                            : 'This is your first time in this mode. Set how many kilometers you want to cover each week:')),
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 20),
               Text(
@@ -697,9 +711,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         color: AppColors.softGreenTint,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Text(
-                        '+ Więcej',
-                        style: TextStyle(
+                      child: Text(
+                        lang == 'pl' ? '+ Więcej' : '+ More',
+                        style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: AppColors.forestGreen,
@@ -714,7 +728,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Anuluj'),
+              child: Text(LocalizationService.tr('cancel', lang)),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -726,7 +740,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 backgroundColor: AppColors.forestGreen,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
-              child: const Text('Zatwierdź cel'),
+              child: Text(
+                lang == 'pl' ? 'Zatwierdź cel' : (lang == 'de' ? 'Ziel bestätigen' : (lang == 'es' ? 'Confirmar objetivo' : 'Confirm Goal')),
+              ),
             ),
           ],
         ),

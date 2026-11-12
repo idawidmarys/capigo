@@ -30,33 +30,100 @@ enum ActivityType {
   }
 
   String getLocalizedName(String lang) {
-    if (lang == 'pl') return displayNamePl;
-    switch (this) {
-      case ActivityType.walk:
-        return 'Walk';
-      case ActivityType.run:
-      case ActivityType.jog:
-        return 'Run';
-      case ActivityType.bike:
-        return 'Cycling';
-      case ActivityType.nordicWalk:
-        return 'Nordic walking';
+    if (lang == 'pl') {
+      return displayNamePl;
+    } else if (lang == 'de') {
+      switch (this) {
+        case ActivityType.walk:
+          return 'Spaziergang';
+        case ActivityType.run:
+        case ActivityType.jog:
+          return 'Laufen';
+        case ActivityType.bike:
+          return 'Radfahren';
+        case ActivityType.nordicWalk:
+          return 'Nordic Walking';
+      }
+    } else if (lang == 'es') {
+      switch (this) {
+        case ActivityType.walk:
+          return 'Paseo';
+        case ActivityType.run:
+        case ActivityType.jog:
+          return 'Carrera';
+        case ActivityType.bike:
+          return 'Ciclismo';
+        case ActivityType.nordicWalk:
+          return 'Nordic walking';
+      }
+    } else {
+      switch (this) {
+        case ActivityType.walk:
+          return 'Walk';
+        case ActivityType.run:
+        case ActivityType.jog:
+          return 'Run';
+        case ActivityType.bike:
+          return 'Cycling';
+        case ActivityType.nordicWalk:
+          return 'Nordic walking';
+      }
     }
   }
 
-  String get startButtonTextPl {
-    switch (this) {
-      case ActivityType.walk:
-        return 'Rozpocznij spacer';
-      case ActivityType.run:
-      case ActivityType.jog:
-        return 'Rozpocznij bieg';
-      case ActivityType.bike:
-        return 'Rozpocznij jazdę na rowerze';
-      case ActivityType.nordicWalk:
-        return 'Rozpocznij nordic walking';
+  String getStartButtonText(String lang) {
+    if (lang == 'pl') {
+      switch (this) {
+        case ActivityType.walk:
+          return 'Rozpocznij spacer';
+        case ActivityType.run:
+        case ActivityType.jog:
+          return 'Rozpocznij bieg';
+        case ActivityType.bike:
+          return 'Rozpocznij jazdę na rowerze';
+        case ActivityType.nordicWalk:
+          return 'Rozpocznij nordic walking';
+      }
+    } else if (lang == 'de') {
+      switch (this) {
+        case ActivityType.walk:
+          return 'Spaziergang starten';
+        case ActivityType.run:
+        case ActivityType.jog:
+          return 'Lauf starten';
+        case ActivityType.bike:
+          return 'Radtour starten';
+        case ActivityType.nordicWalk:
+          return 'Nordic Walking starten';
+      }
+    } else if (lang == 'es') {
+      switch (this) {
+        case ActivityType.walk:
+          return 'Iniciar paseo';
+        case ActivityType.run:
+        case ActivityType.jog:
+          return 'Iniciar carrera';
+        case ActivityType.bike:
+          return 'Iniciar ciclismo';
+        case ActivityType.nordicWalk:
+          return 'Iniciar nordic walking';
+      }
+    } else {
+      switch (this) {
+        case ActivityType.walk:
+          return 'Start walking';
+        case ActivityType.run:
+        case ActivityType.jog:
+          return 'Start running';
+        case ActivityType.bike:
+          return 'Start cycling';
+        case ActivityType.nordicWalk:
+          return 'Start nordic walking';
+      }
     }
   }
+
+  String get startButtonTextPl => getStartButtonText('pl');
 
   String get actionVerbPl {
     switch (this) {

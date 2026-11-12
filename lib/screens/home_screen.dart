@@ -62,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
             NavigationDestination(
               icon: Icon(currentType.icon, color: AppColors.textSecondary),
               selectedIcon: Icon(currentType.icon, color: AppColors.forestGreen),
-              label: currentType.displayNamePl,
+              label: currentType.getLocalizedName(lang),
             ),
             NavigationDestination(
               icon: const Icon(Icons.history_outlined, color: AppColors.textSecondary),
@@ -145,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(width: 6),
                         Flexible(
                           child: Text(
-                            'Tryb: ${currentType.displayNamePl}',
+                            '${LocalizationService.tr('mode', lang)}: ${currentType.getLocalizedName(lang)}',
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
@@ -354,7 +354,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                tracking.isPaused ? 'Trening wstrzymany' : '${tracking.currentType.displayNamePl} w toku',
+                                tracking.isPaused
+                                    ? (lang == 'pl' ? 'Trening wstrzymany' : (lang == 'de' ? 'Training pausiert' : (lang == 'es' ? 'Entrenamiento en pausa' : 'Workout paused')))
+                                    : '${tracking.currentType.getLocalizedName(lang)} ${lang == 'pl' ? 'w toku' : (lang == 'de' ? 'im Gange' : (lang == 'es' ? 'en curso' : 'in progress'))}',
                                 style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
@@ -462,7 +464,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${LocalizationService.tr('weekly_goal_header', lang)} (${currentType.displayNamePl.toUpperCase()})',
+                          '${LocalizationService.tr('weekly_goal_header', lang)} (${currentType.getLocalizedName(lang).toUpperCase()})',
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
@@ -599,8 +601,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Text(
                               tracking.isTracking
-                                  ? (tracking.isPaused ? 'Trening wstrzymany — Wróć do trasy' : 'Trening w toku — Wróć do trasy')
-                                  : currentType.startButtonTextPl,
+                                  ? (tracking.isPaused
+                                      ? (lang == 'pl' ? 'Trening wstrzymany — Wróć do trasy' : (lang == 'de' ? 'Training pausiert — Zurück zur Route' : (lang == 'es' ? 'Entrenamiento en pausa — Volver a la ruta' : 'Workout paused — Return to route')))
+                                      : (lang == 'pl' ? 'Trening w toku — Wróć do trasy' : (lang == 'de' ? 'Training läuft — Zurück zur Route' : (lang == 'es' ? 'Entrenamiento en curso — Volver a la ruta' : 'Workout in progress — Return to route'))))
+                                  : currentType.getStartButtonText(lang),
                               style: const TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,
@@ -611,7 +615,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               tracking.isTracking
                                   ? '${tracking.distanceKm.toStringAsFixed(2)} km  •  ${tracking.formattedDuration}'
-                                  : 'Każdy krok przybliża Cię do celu',
+                                  : LocalizationService.tr('start_walk_sub', lang),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.white.withValues(alpha: 0.8),
@@ -676,7 +680,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        userProvider.showAllActivities ? 'Wszystkie' : 'Tylko ${currentType.displayNamePl}',
+                        userProvider.showAllActivities
+                            ? LocalizationService.tr('all_activities', lang)
+                            : LocalizationService.tr('only_current_mode', lang, params: {'mode': currentType.getLocalizedName(lang)}),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -704,8 +710,14 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Center(
                 child: Text(
                   userProvider.showAllActivities
-                      ? 'Brak zapisanych aktywności'
-                      : 'Brak zapisanych aktywności w trybie ${currentType.displayNamePl}',
+                      ? LocalizationService.tr('no_walks_yet', lang)
+                      : (lang == 'pl'
+                          ? 'Brak zapisanych aktywności w trybie ${currentType.getLocalizedName(lang)}'
+                          : (lang == 'de'
+                              ? 'Keine Aktivitäten im Modus ${currentType.getLocalizedName(lang)} gespeichert'
+                              : (lang == 'es'
+                                  ? 'No hay actividades guardadas en modo ${currentType.getLocalizedName(lang)}'
+                                  : 'No activities saved in ${currentType.getLocalizedName(lang)} mode'))),
                   style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                 ),
               ),
@@ -752,6 +764,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Modal to switch mode anytime (Requirement 5 & 6)
   void _showModeSelector(BuildContext context, UserProvider userProvider) {
+    final lang = userProvider.languageCode;
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -768,9 +781,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      'Zmień tryb aktywności',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textDark),
+                    Text(
+                      LocalizationService.tr('select_mode', lang),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textDark),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
@@ -802,14 +815,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Icon(mode.icon, color: mode.color, size: 22),
                       ),
                       title: Text(
-                        mode.displayNamePl,
+                        mode.getLocalizedName(lang),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: isCurrent ? AppColors.forestGreen : AppColors.textDark,
                         ),
                       ),
                       subtitle: Text(
-                        'Tygodniowy cel: ${goal.toInt()} km',
+                        '${LocalizationService.tr('weekly_goal_header', lang)}: ${goal.toInt()} km',
                         style: const TextStyle(fontSize: 12),
                       ),
                       trailing: isCurrent
@@ -838,6 +851,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Prompt goal dialog on first time entering a new mode (Requirement 6)
   Future<void> _showFirstTimeGoalDialog(BuildContext context, UserProvider userProvider, ActivityType mode) async {
+    final lang = userProvider.languageCode;
     double goal = mode.defaultGoalKm;
     double maxGoal = mode == ActivityType.bike ? 150.0 : 60.0;
 
@@ -852,7 +866,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Tygodniowy cel: ${mode.displayNamePl}',
+                  '${LocalizationService.tr('weekly_goal_header', lang)}: ${mode.getLocalizedName(lang)}',
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -861,9 +875,15 @@ class _HomeScreenState extends State<HomeScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                'To Twoje pierwsze wejście w ten tryb. Ustaw ile kilometrów tygodniowo chcesz pokonać:',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              Text(
+                lang == 'pl'
+                    ? 'To Twoje pierwsze wejście w ten tryb. Ustaw ile kilometrów tygodniowo chcesz pokonać:'
+                    : (lang == 'de'
+                        ? 'Das ist dein erster Eintrag in diesen Modus. Lege fest, wie viele Kilometer du pro Woche zurücklegen möchtest:'
+                        : (lang == 'es'
+                            ? 'Esta es tu primera vez en este modo. Define cuántos kilómetros por semana deseas recorrer:'
+                            : 'This is your first time in this mode. Set how many kilometers you want to cover each week:')),
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 20),
               Text(
@@ -897,7 +917,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 backgroundColor: AppColors.forestGreen,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              child: const Text('Zapisz i zacznij', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              child: Text(
+                lang == 'pl' ? 'Zapisz i zacznij' : (lang == 'de' ? 'Speichern & Los' : (lang == 'es' ? 'Guardar y comenzar' : 'Save & Start')),
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -1070,13 +1093,14 @@ class _HomeScreenState extends State<HomeScreen> {
     double tempGoal = currentGoal;
     double maxGoal = mode == ActivityType.bike ? 150.0 : 60.0;
     final userProvider = context.read<UserProvider>();
+    final lang = userProvider.languageCode;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDlgState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          title: Text('Cel tygodniowy: ${mode.displayNamePl}'),
+          title: Text('${LocalizationService.tr('weekly_goal_header', lang)}: ${mode.getLocalizedName(lang)}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1103,7 +1127,7 @@ class _HomeScreenState extends State<HomeScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Anuluj'),
+              child: Text(LocalizationService.tr('cancel', lang)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -1114,7 +1138,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 backgroundColor: AppColors.forestGreen,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              child: const Text('Zapisz', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              child: Text(LocalizationService.tr('save', lang), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             ),
           ],
         ),

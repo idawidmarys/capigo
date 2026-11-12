@@ -124,8 +124,12 @@ class _TempoSettingsDialogState extends State<TempoSettingsDialog> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(lang == 'pl'
-            ? 'Ustawienia tempa dla trybu ${_mode.displayNamePl} zostały zapisane!'
-            : 'Pace settings for ${_mode.name} saved!'),
+            ? 'Ustawienia tempa dla trybu ${_mode.getLocalizedName(lang)} zostały zapisane!'
+            : (lang == 'de'
+                ? 'Tempo-Einstellungen für den Modus ${_mode.getLocalizedName(lang)} wurden gespeichert!'
+                : (lang == 'es'
+                    ? '¡Se han guardado los ajustes de ritmo para el modo ${_mode.getLocalizedName(lang)}!'
+                    : 'Pace settings for ${_mode.getLocalizedName(lang)} mode saved!'))),
         backgroundColor: AppColors.forestGreen,
       ),
     );
@@ -194,7 +198,7 @@ class _TempoSettingsDialogState extends State<TempoSettingsDialog> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                _mode.displayNamePl,
+                                _mode.getLocalizedName(lang),
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,

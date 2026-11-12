@@ -26,7 +26,7 @@ class _WorkoutReportScreenState extends State<WorkoutReportScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: Text('${LocalizationService.tr('report_title', lang)}: ${widget.session.type.displayNamePl}'),
+        title: Text('${LocalizationService.tr('report_title', lang)}: ${widget.session.type.getLocalizedName(lang)}'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
