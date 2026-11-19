@@ -31,7 +31,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void initState() {
     super.initState();
-    _habits = HabitItem.defaultHabitsForMode(_selectedMode);
+    _habits = _defaultHabitsForOnboarding(_selectedMode);
   }
 
   @override
@@ -53,8 +53,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _selectedMode = type;
       _weeklyGoalKm = type.defaultGoalKm;
       _maxGoalKm = type == ActivityType.bike ? 120.0 : 50.0;
-      _habits = HabitItem.defaultHabitsForMode(type);
+      _habits = _defaultHabitsForOnboarding(type);
     });
+  }
+
+  /// Returns habits with ONLY the first one (Netflix) enabled at its default time.
+  /// All other habits start disabled (no triggerTime) so user must opt in manually.
+  List<HabitItem> _defaultHabitsForOnboarding(ActivityType type) {
+    final all = HabitItem.defaultHabitsForMode(type);
+    return all.asMap().entries.map((e) {
+      final i = e.key;
+      final habit = e.value;
+      if (i == 0) {
+        // First habit: enabled with its default time (Netflix at 20:00)
+        return habit.copyWith(isEnabled: true);
+      } else {
+        // Rest: disabled, no time — user must opt in
+        return habit.copyWith(clearTime: true, isEnabled: false);
+      }
+    }).toList();
   }
 
   Future<void> _pickTimeForHabit(int index) async {
@@ -65,6 +82,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         _habits[index] = _habits[index].copyWith(triggerTime: picked, isEnabled: true);
       });
     }
+  }
+
+  /// Like [_pickTimeForHabit] but returns the picked time (used by Switch toggle).
+  Future<TimeOfDay?> _pickTimeForHabitReturn(int index, TimeOfDay initial) async {
+    return TimeInputDialog.show(context, initialTime: initial);
   }
 
   void _addCustomHabit() {
@@ -560,9 +582,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.textDark),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'Wybierz godziny swoich codziennych nawyków – wyślemy wtedy subtelną zachętę do ruchu.',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              Text(
+                LocalizationService.tr('habits_sub', lang),
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -574,7 +596,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             itemCount: _habits.length + 1,
             itemBuilder: (context, index) {
               if (index == _habits.length) {
-                // Button to add custom
+                // "Add custom" button at bottom
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: OutlinedButton.icon(
@@ -585,65 +607,74 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                     icon: const Icon(Icons.add_rounded, color: AppColors.forestGreen),
-                    label: const Text(
-                      'Dodaj własne',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.forestGreen),
+                    label: Text(
+                      LocalizationService.tr('add_custom_walk', lang),
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.forestGreen),
                     ),
                   ),
                 );
               }
 
               final habit = _habits[index];
+              final bool isEnabled = habit.isEnabled && habit.triggerTime != null;
+
               return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                margin: const EdgeInsets.only(bottom: 10),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(
+                    color: isEnabled ? AppColors.forestGreen.withValues(alpha: 0.4) : AppColors.border,
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            habit.getLocalizedTitle(lang),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            habit.triggerTime != null
-                                ? 'Przypomnienie o: ${habit.triggerTime!.format(context)}'
-                                : 'Nie dotyczy',
-                            style: TextStyle(
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  title: Text(
+                    habit.getLocalizedTitle(lang),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isEnabled ? AppColors.textDark : AppColors.textSecondary,
+                    ),
+                  ),
+                  subtitle: isEnabled
+                      ? GestureDetector(
+                          onTap: () => _pickTimeForHabit(index),
+                          child: Text(
+                            '${LocalizationService.tr('set_hour', lang)}: ${habit.triggerTime!.format(context)}',
+                            style: const TextStyle(
                               fontSize: 12,
-                              color: habit.triggerTime != null ? AppColors.forestGreen : AppColors.textSecondary,
+                              color: AppColors.forestGreen,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => _pickTimeForHabit(index),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppColors.softGreenTint,
-                          borderRadius: BorderRadius.circular(12),
+                        )
+                      : Text(
+                          LocalizationService.tr('not_applicable', lang),
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                         ),
-                        child: Text(
-                          habit.triggerTime != null ? habit.triggerTime!.format(context) : 'Ustaw godzinę',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.forestGreen,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  trailing: Switch(
+                    value: isEnabled,
+                    activeThumbColor: AppColors.forestGreen,
+                    activeTrackColor: AppColors.softGreenTint,
+                    onChanged: (val) async {
+                      if (val) {
+                        // Turning ON: pick time first
+                        final initial = habit.triggerTime ?? const TimeOfDay(hour: 18, minute: 0);
+                        final picked = await _pickTimeForHabitReturn(index, initial);
+                        if (picked != null) {
+                          setState(() {
+                            _habits[index] = _habits[index].copyWith(triggerTime: picked, isEnabled: true);
+                          });
+                        }
+                      } else {
+                        // Turning OFF: clear time
+                        setState(() {
+                          _habits[index] = _habits[index].copyWith(clearTime: true, isEnabled: false);
+                        });
+                      }
+                    },
+                  ),
                 ),
               );
             },
@@ -661,12 +692,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 backgroundColor: AppColors.forestGreen,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Dalej', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                  SizedBox(width: 8),
-                  Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                  Text(LocalizationService.tr('next', lang),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_forward_rounded, color: Colors.white),
                 ],
               ),
             ),
