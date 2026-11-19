@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
+import 'dart:math' as math;
 import 'package:provider/provider.dart';
 import '../providers/tracking_provider.dart';
 import '../providers/user_provider.dart';
@@ -21,8 +22,67 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   bool _isMapReady = false;
   bool _followHeading = true;
   double _currentMapRotation = 0.0;
-  double _lastAnimatedHeading = 0.0;
   LatLng? _lastCenteredPoint;
+  double _lastAnimatedHeading = -999.0;
+
+  // We listen to TrackingProvider directly so the map updates even when
+  // Flutter's build() cycle is not triggered by a gesture.
+  TrackingProvider? _trackingProvider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final newTracking = context.read<TrackingProvider>();
+    if (_trackingProvider != newTracking) {
+      _trackingProvider?.removeListener(_onTrackingUpdate);
+      _trackingProvider = newTracking;
+      _trackingProvider!.addListener(_onTrackingUpdate);
+    }
+  }
+
+  @override
+  void dispose() {
+    _trackingProvider?.removeListener(_onTrackingUpdate);
+    super.dispose();
+  }
+
+  /// Called whenever TrackingProvider notifies — moves/rotates the map so the
+  /// user arrow stays centred and always points straight UP on screen.
+  void _onTrackingUpdate() {
+    if (!mounted || !_isMapReady || !_followHeading) return;
+    final tracking = _trackingProvider!;
+
+    final List<LatLng> pts = tracking.routePoints
+        .map((p) => LatLng(p.latitude, p.longitude))
+        .toList();
+
+    final LatLng? currentPoint = pts.isNotEmpty
+        ? pts.last
+        : (tracking.lastPosition != null
+            ? LatLng(tracking.lastPosition!.latitude,
+                tracking.lastPosition!.longitude)
+            : null);
+
+    if (currentPoint == null) return;
+
+    // Map rotation = negative of compass heading so the arrow points UP.
+    final double targetRotation = (360.0 - tracking.currentHeading) % 360.0;
+
+    final bool posChanged = _lastCenteredPoint == null ||
+        (_lastCenteredPoint!.latitude - currentPoint.latitude).abs() > 1e-7 ||
+        (_lastCenteredPoint!.longitude - currentPoint.longitude).abs() > 1e-7;
+    final bool headingChanged =
+        (targetRotation - _lastAnimatedHeading).abs() > 2.0;
+
+    if (posChanged || headingChanged) {
+      _lastCenteredPoint = currentPoint;
+      _lastAnimatedHeading = targetRotation;
+      try {
+        _mapController.moveAndRotate(currentPoint, 17.0, targetRotation);
+        if (mounted) setState(() => _currentMapRotation = targetRotation);
+      } catch (_) {}
+    }
+  }
 
   Future<void> _takePhoto() async {
     final picker = ImagePicker();
@@ -94,30 +154,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
 
     final LatLng displayCenter = currentPoint ?? const LatLng(52.2297, 21.0122);
     final double heading = tracking.currentHeading;
-
-    // Follow and rotate map when moving (Google Maps navigation style)
-    if (_followHeading && currentPoint != null && _isMapReady) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_isMapReady) return;
-        final double targetRotation = (360.0 - heading) % 360.0;
-        final bool shouldMove = _lastCenteredPoint == null ||
-            _lastCenteredPoint!.latitude != currentPoint.latitude ||
-            _lastCenteredPoint!.longitude != currentPoint.longitude ||
-            (_lastAnimatedHeading - targetRotation).abs() > 2.0;
-
-        if (shouldMove) {
-          _lastCenteredPoint = currentPoint;
-          _lastAnimatedHeading = targetRotation;
-          try {
-            _mapController.moveAndRotate(
-              currentPoint,
-              17.0,
-              targetRotation,
-            );
-          } catch (_) {}
-        }
-      });
-    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -224,7 +260,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                                   // Otherwise, orient arrow in the direction of heading relative to current map rotation.
                                   angle: _followHeading
                                       ? 0.0
-                                      : ((heading + _currentMapRotation) * (pi / 180.0)),
+                                      : ((heading + _currentMapRotation) * (math.pi / 180.0)),
                                   child: Container(
                                     decoration: BoxDecoration(
                                       color: AppColors.forestGreen,
@@ -287,7 +323,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                               ),
                               child: Center(
                                 child: Transform.rotate(
-                                  angle: -(_currentMapRotation * (pi / 180.0)),
+                                  angle: -(_currentMapRotation * (math.pi / 180.0)),
                                   child: const Icon(
                                     Icons.explore_rounded,
                                     color: Colors.redAccent,

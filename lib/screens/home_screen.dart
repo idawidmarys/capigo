@@ -458,34 +458,40 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${LocalizationService.tr('weekly_goal_header', lang)} (${currentType.getLocalizedName(lang).toUpperCase()})',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.9,
-                            color: AppColors.textSecondary,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${LocalizationService.tr('weekly_goal_header', lang)} (${currentType.getLocalizedName(lang).toUpperCase()})',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.9,
+                              color: AppColors.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          LocalizationService.tr('current_week', lang),
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textDark,
+                          const SizedBox(height: 2),
+                          Text(
+                            LocalizationService.tr('current_week', lang),
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textDark,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () => _showEditGoalDialog(context, goalKm, currentType),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             LocalizationService.tr('edit', lang),
@@ -572,7 +578,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   final navigator = Navigator.of(context);
                   final messenger = ScaffoldMessenger.of(context);
 
-                  final success = await tracking.startTracking(currentType);
+                  final success = await tracking.startTracking(currentType, lang: lang);
                   if (!context.mounted) return;
 
                   if (success) {

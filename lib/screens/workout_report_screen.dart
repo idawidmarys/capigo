@@ -368,7 +368,7 @@ class _WorkoutReportScreenState extends State<WorkoutReportScreen> {
               reservedSize: 36,
               getTitlesWidget: (val, meta) => Text(
                 val.toInt().toString(),
-                style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
+                style: const TextStyle(color: Colors.white, fontSize: 10),
               ),
             ),
           ),
@@ -398,7 +398,9 @@ class _WorkoutReportScreenState extends State<WorkoutReportScreen> {
       spots.add(FlSpot((widget.session.durationSeconds / 60.0), widget.session.distanceKm));
     } else {
       for (var point in widget.session.timeSeries) {
-        spots.add(FlSpot(point.second / 60.0, point.distanceMeters / 1000.0));
+        // Round to 2 decimal places (km) so Y-axis labels are clean
+        final km = double.parse((point.distanceMeters / 1000.0).toStringAsFixed(2));
+        spots.add(FlSpot(point.second / 60.0, km));
       }
     }
 
@@ -427,7 +429,7 @@ class _WorkoutReportScreenState extends State<WorkoutReportScreen> {
               showTitles: true,
               reservedSize: 36,
               getTitlesWidget: (val, meta) => Text(
-                '${val.toStringAsFixed(1)}k',
+                '${val.toStringAsFixed(2)}k',
                 style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
               ),
             ),

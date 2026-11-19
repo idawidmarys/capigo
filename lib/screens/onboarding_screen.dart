@@ -694,16 +694,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: const Icon(Icons.security_rounded, color: AppColors.forestGreen, size: 48),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Dostęp do czujników i lokalizacji',
+          Text(
+            LocalizationService.tr('permissions_title', lang),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.textDark),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.textDark),
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Aby precyzyjnie mierzyć przebyte kilometry, trasę i tempo oraz wysyłać motywujące przypomnienia, CapiGo potrzebuje zgody na dostęp do lokalizacji GPS i powiadomień.',
+          Text(
+            LocalizationService.tr('permissions_desc', lang),
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
+            style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.4),
           ),
           const SizedBox(height: 48),
 
@@ -716,9 +716,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 backgroundColor: AppColors.forestGreen,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
               ),
-              child: const Text(
-                'Zezwól na dostęp i zaczynajmy',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              child: Text(
+                LocalizationService.tr('grant_permissions', lang),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ),
           ),

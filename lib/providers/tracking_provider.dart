@@ -16,6 +16,7 @@ class TrackingProvider extends ChangeNotifier {
   ActivityType _currentType = ActivityType.walk;
   bool _isTracking = false;
   bool _isPaused = false;
+  String _lang = 'pl';
 
   DateTime? _startTime;
   int _accumulatedPausedSeconds = 0;
@@ -56,6 +57,7 @@ class TrackingProvider extends ChangeNotifier {
   ActivityType get currentType => _currentType;
   bool get isTracking => _isTracking;
   bool get isPaused => _isPaused;
+  String get lang => _lang;
   double get currentHeading => _currentHeading;
   Position? get lastPosition => _lastPosition;
   List<String> get currentPhotos => List.unmodifiable(_currentPhotos);
@@ -127,7 +129,7 @@ class TrackingProvider extends ChangeNotifier {
   }
 
   // Start workout
-  Future<bool> startTracking(ActivityType type) async {
+  Future<bool> startTracking(ActivityType type, {String lang = 'pl'}) async {
     try {
       final hasPermission = await LocationService.handlePermission();
       if (!hasPermission) {
@@ -135,6 +137,7 @@ class TrackingProvider extends ChangeNotifier {
       }
 
       _currentType = type;
+      _lang = lang;
       _isTracking = true;
       _isPaused = false;
       _accumulatedPausedSeconds = 0;
@@ -179,6 +182,8 @@ class TrackingProvider extends ChangeNotifier {
           distanceKm: distanceKm,
           steps: _steps,
           isPaused: false,
+          lang: _lang,
+          activityName: _currentType.getLocalizedName(_lang),
         );
       } catch (_) {}
 
@@ -221,6 +226,8 @@ class TrackingProvider extends ChangeNotifier {
             distanceKm: distanceKm,
             steps: _steps,
             isPaused: false,
+            lang: _lang,
+            activityName: _currentType.getLocalizedName(_lang),
           );
         }
 
@@ -328,6 +335,8 @@ class TrackingProvider extends ChangeNotifier {
             distanceKm: distanceKm,
             steps: _steps,
             isPaused: false,
+            lang: _lang,
+            activityName: _currentType.getLocalizedName(_lang),
           );
 
           notifyListeners();
@@ -363,6 +372,8 @@ class TrackingProvider extends ChangeNotifier {
       distanceKm: distanceKm,
       steps: _steps,
       isPaused: true,
+      lang: _lang,
+      activityName: _currentType.getLocalizedName(_lang),
     );
 
     notifyListeners();
@@ -382,6 +393,8 @@ class TrackingProvider extends ChangeNotifier {
       distanceKm: distanceKm,
       steps: _steps,
       isPaused: false,
+      lang: _lang,
+      activityName: _currentType.getLocalizedName(_lang),
     );
 
     notifyListeners();
@@ -450,6 +463,14 @@ class TrackingProvider extends ChangeNotifier {
   }
 
   void _reset() {
+    // Cancel all active streams/timers FIRST so they cannot re-post notifications
+    _timer?.cancel();
+    _timer = null;
+    _positionSubscription?.cancel();
+    _positionSubscription = null;
+    _pedometerSubscription?.cancel();
+    _pedometerSubscription = null;
+
     _isTracking = false;
     _isPaused = false;
     _startTime = null;

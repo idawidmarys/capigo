@@ -15,7 +15,7 @@ class NotificationService {
   static const int workoutNotificationId = 999;
 
   static const String habitsChannelId = 'capigo_habits_reminders';
-  static const String habitsChannelName = 'CapiGo - Przypomnienia o spacerach';
+  static const String habitsChannelName = 'CapiGo - Przypomnienia o aktywności';
 
   static Future<void> initialize({Function(String action)? onNotificationAction}) async {
     if (kIsWeb) {
@@ -84,38 +84,55 @@ class NotificationService {
     return true;
   }
 
-  // Show or update the live workout notification on lock screen
+  /// Show or update the live workout notification on the lock screen.
+  /// [activityName] – localized activity name (e.g. "Spacer", "Walk").
+  /// [lang]         – user language code for localized labels.
   static Future<void> updateWorkoutNotification({
     required String duration,
     required double distanceKm,
     required int steps,
     required bool isPaused,
+    String lang = 'pl',
+    String activityName = '',
   }) async {
     if (kIsWeb) return;
     if (!_isInitialized) await initialize();
 
-    final String title = isPaused ? 'CapiGo - Trening wstrzymany ⏸️' : 'CapiGo - Spacer w toku 🦫';
-    final String body = '${distanceKm.toStringAsFixed(2)} km  •  $duration  •  $steps kroków';
+    final String pausedLabel = _localizedLabel(lang, 'paused');
+    final String inProgressLabel = _localizedLabel(lang, 'in_progress');
+    final String stepsLabel = _localizedLabel(lang, 'steps');
+
+    final String displayName = activityName.isNotEmpty ? activityName : 'CapiGo';
+    final String title = isPaused
+        ? 'CapiGo - $displayName $pausedLabel ⏸️'
+        : 'CapiGo - $displayName $inProgressLabel 🦫';
+    final String body =
+        '${distanceKm.toStringAsFixed(2)} km  •  $duration  •  $steps $stepsLabel';
+
+    final String resumeLabel = _localizedLabel(lang, 'resume');
+    final String pauseLabel = _localizedLabel(lang, 'pause');
+    final String stopLabel = _localizedLabel(lang, 'stop');
 
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       workoutChannelId,
       workoutChannelName,
-      channelDescription: 'Powiadomienie na zablokowanym ekranie podczas trwania spaceru',
+      channelDescription: 'Powiadomienie na zablokowanym ekranie podczas trwania treningu',
       importance: Importance.low,
       priority: Priority.low,
-      ongoing: !isPaused,
+      // Always ongoing while tracking — dismissed ONLY via cancelWorkoutNotification()
+      ongoing: true,
       autoCancel: false,
       showWhen: false,
       visibility: NotificationVisibility.public,
       actions: <AndroidNotificationAction>[
         AndroidNotificationAction(
           isPaused ? 'resume_action' : 'pause_action',
-          isPaused ? 'Wznów' : 'Pauza',
+          isPaused ? resumeLabel : pauseLabel,
           showsUserInterface: true,
         ),
-        const AndroidNotificationAction(
+        AndroidNotificationAction(
           'stop_action',
-          'Zakończ',
+          stopLabel,
           showsUserInterface: true,
           cancelNotification: false,
         ),
@@ -149,7 +166,8 @@ class NotificationService {
     } catch (_) {}
   }
 
-  // Schedule daily habit notifications ("Dlaczego warto wyjść na spacer")
+  /// Schedule daily habit notifications.
+  /// Uses already-localized habit titles/prompts (which are mode-aware via [HabitItem.defaultHabitsForMode]).
   static Future<void> scheduleHabitNotifications(
     List<HabitItem> habits,
     String lang,
@@ -157,7 +175,7 @@ class NotificationService {
     if (kIsWeb) return;
     if (!_isInitialized) await initialize();
 
-    // Cancel all previously scheduled habit notifications (IDs 100 to 150)
+    // Cancel all previously scheduled habit notifications (IDs 100..149)
     for (int i = 0; i < 50; i++) {
       try {
         await _notificationsPlugin.cancel(id: 100 + i);
@@ -173,15 +191,7 @@ class NotificationService {
       final hour = habit.triggerTime!.hour;
       final minute = habit.triggerTime!.minute;
 
-      var scheduledDate = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        hour,
-        minute,
-      );
-
-      // If already passed today, schedule for tomorrow
+      var scheduledDate = DateTime(now.year, now.month, now.day, hour, minute);
       if (scheduledDate.isBefore(now)) {
         scheduledDate = scheduledDate.add(const Duration(days: 1));
       }
@@ -191,7 +201,7 @@ class NotificationService {
       final androidDetails = AndroidNotificationDetails(
         habitsChannelId,
         habitsChannelName,
-        channelDescription: 'Codzienne motywujące powiadomienia o spacerze',
+        channelDescription: 'Codzienne motywujące powiadomienia o aktywności',
         importance: Importance.high,
         priority: Priority.high,
         visibility: NotificationVisibility.public,
@@ -220,5 +230,18 @@ class NotificationService {
         );
       } catch (_) {}
     }
+  }
+
+  // Helper: returns a localized short label for notification UI text.
+  static String _localizedLabel(String lang, String key) {
+    const labels = <String, Map<String, String>>{
+      'paused': {'pl': 'wstrzymany', 'en': 'paused', 'de': 'pausiert', 'es': 'en pausa'},
+      'in_progress': {'pl': 'w toku', 'en': 'in progress', 'de': 'läuft', 'es': 'en curso'},
+      'steps': {'pl': 'kroków', 'en': 'steps', 'de': 'Schritte', 'es': 'pasos'},
+      'resume': {'pl': 'Wznów', 'en': 'Resume', 'de': 'Fortsetzen', 'es': 'Reanudar'},
+      'pause': {'pl': 'Pauza', 'en': 'Pause', 'de': 'Pause', 'es': 'Pausa'},
+      'stop': {'pl': 'Zakończ', 'en': 'Finish', 'de': 'Beenden', 'es': 'Terminar'},
+    };
+    return labels[key]?[lang] ?? labels[key]?['en'] ?? key;
   }
 }

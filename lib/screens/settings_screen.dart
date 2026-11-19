@@ -219,7 +219,7 @@ class SettingsScreen extends StatelessWidget {
 
           // Scheduled habit prompts header
           Text(
-            LocalizationService.tr('habits_title', lang),
+            _habitsTitle(lang, activeType),
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -652,5 +652,59 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // Returns a mode-aware "Why go for a [walk/run/ride/nordic walk]" header.
+  static String _habitsTitle(String lang, ActivityType mode) {
+    switch (lang) {
+      case 'en':
+        switch (mode) {
+          case ActivityType.run:
+          case ActivityType.jog:
+            return 'Why go for a run';
+          case ActivityType.bike:
+            return 'Why go for a ride';
+          case ActivityType.nordicWalk:
+            return 'Why do Nordic walking';
+          default:
+            return 'Why go for a walk';
+        }
+      case 'de':
+        switch (mode) {
+          case ActivityType.run:
+          case ActivityType.jog:
+            return 'Warum laufen gehen';
+          case ActivityType.bike:
+            return 'Warum Fahrrad fahren';
+          case ActivityType.nordicWalk:
+            return 'Warum Nordic Walking';
+          default:
+            return 'Warum spazieren gehen';
+        }
+      case 'es':
+        switch (mode) {
+          case ActivityType.run:
+          case ActivityType.jog:
+            return 'Por qué salir a correr';
+          case ActivityType.bike:
+            return 'Por qué salir en bici';
+          case ActivityType.nordicWalk:
+            return 'Por qué hacer Nordic walking';
+          default:
+            return 'Por qué salir a caminar';
+        }
+      default: // 'pl'
+        switch (mode) {
+          case ActivityType.run:
+          case ActivityType.jog:
+            return 'Dlaczego warto pobiegać';
+          case ActivityType.bike:
+            return 'Dlaczego warto pojechać na rower';
+          case ActivityType.nordicWalk:
+            return 'Dlaczego warto wyjść na Nordic Walking';
+          default:
+            return 'Dlaczego warto wyjść na spacer';
+        }
+    }
   }
 }
